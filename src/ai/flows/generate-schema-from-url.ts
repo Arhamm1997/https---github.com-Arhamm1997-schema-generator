@@ -71,9 +71,8 @@ const generateSchemaFromUrlFlow = ai.defineFlow(
         3.  **Extract Information**: Extract all relevant information for the main entity: name, description, address, phone number, email, services offered, opening hours, etc.
         4.  **Create Voice-Optimized Description**: The 'description' field for the main entity should be conversational and concise (20-30 words), suitable for a voice assistant to read aloud.
         5.  **Construct Schema**: Build a valid JSON-LD schema. The root object MUST be of '@type': 'WebPage'. The business/article information should be nested inside the 'mainEntity' property. This is crucial for validation.
-        6.  **Add Speakable Property**: To the root 'WebPage' object, add a 'speakable' property with a "SpeakableSpecification" type. For the 'cssSelector' field, suggest some likely CSS selectors where the main content can be found (e.g., ["#main-content", ".article-body", "[role=main]"]). Do not invent specific, complex selectors that are unlikely to exist. Base your suggestions on the content you analyzed.
         
-        Return only the generated JSON object. Do not include any explanatory text.
+        Return only the generated JSON object. Do not include any explanatory text or the speakable property.
       `,
     });
     
