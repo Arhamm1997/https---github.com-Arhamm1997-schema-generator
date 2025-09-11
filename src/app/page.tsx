@@ -363,25 +363,29 @@ export default function Home() {
     };
     
     const validateSchema = () => {
-      if(!generatedSchema) {
-        toast({variant: 'destructive', title: 'Nothing to validate', description: 'Please generate a schema first.'});
-        return;
-      }
-      try {
-        const scriptMatches = generatedSchema.match(/<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/g);
-        if (scriptMatches && scriptMatches.length > 0) {
-           scriptMatches.forEach(match => {
-             const jsonContent = match.replace(/<\/?script[^>]*>/g, '').trim();
-             JSON.parse(jsonContent);
-           });
-           toast({title: 'Validation Success', description: 'JSON is well-formed!', icon: <CircleCheck className="h-4 w-4 text-green-500"/>});
-        } else {
-           toast({variant: 'destructive', title: 'Validation Error', description: 'No JSON-LD script found.'});
+        if (!generatedSchema) {
+            toast({ variant: 'destructive', title: 'Nothing to validate', description: 'Please generate a schema first.' });
+            return;
         }
-      } catch (e: any) {
-        toast({variant: 'destructive', title: 'Validation Error', description: `Invalid JSON: ${e.message}`});
-      }
-    }
+        
+        const scriptContentMatch = generatedSchema.match(/<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/);
+        const code = scriptContentMatch ? scriptContentMatch[1] : generatedSchema;
+    
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = 'https://search.google.com/test/rich-results';
+        form.target = '_blank';
+    
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'code';
+        input.value = code;
+    
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    };
 
 
     const resetFields = () => {
@@ -485,7 +489,7 @@ export default function Home() {
                                 <div className="grid grid-cols-2 gap-3 mt-8">
                                     <Button onClick={generateSchema} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold col-span-2"><Wand2 />Generate Schema</Button>
                                     <Button variant="outline" onClick={copySchema}><Copy/>Copy</Button>
-                                    <Button variant="outline" onClick={validateSchema}><CircleCheck/>Validate</Button>
+                                    <Button variant="outline" onClick={validateSchema}><CircleCheck/>Validate with Google</Button>
                                     <Button variant="destructive" onClick={resetFields} className="col-span-2"><Trash2/>Reset All</Button>
                                 </div>
                             </CardContent>
