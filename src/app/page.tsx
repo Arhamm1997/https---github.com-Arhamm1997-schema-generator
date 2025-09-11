@@ -11,8 +11,9 @@ import { useToast } from '@/hooks/use-toast';
 import useLocalStorage from '@/hooks/use-local-storage';
 import type { HistoryItem } from '@/lib/types';
 import { cleanObject } from '@/lib/utils';
-import { SlidersHorizontal, Code, History, Copy, Trash2, Download, CircleCheck, AlertTriangle, Wand2, Bot } from 'lucide-react';
+import { SlidersHorizontal, Code, History, Copy, Trash2, Download, CircleCheck, AlertTriangle, Wand2, Bot, Link } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { generateSchemaFromUrl } from '@/ai/flows/generate-schema-from-url';
 
 
 const MotionCard = motion(Card);
@@ -32,6 +33,63 @@ const Header = () => (
     </div>
   </motion.header>
 );
+
+const UrlFetchCard = ({ onSchemaGenerated }: { onSchemaGenerated: (schema: string) => void }) => {
+    const [url, setUrl] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
+
+    const handleGenerate = async () => {
+        if (!url) {
+            toast({ variant: 'destructive', title: 'URL is required', description: 'Please enter a URL to fetch.' });
+            return;
+        }
+        setIsLoading(true);
+        try {
+            const result = await generateSchemaFromUrl({ url });
+            const schemaString = `<script type="application/ld+json">\n${JSON.stringify(result.schema, null, 2)}\n</script>`;
+            onSchemaGenerated(schemaString);
+            toast({ title: 'Schema Generated from URL!', description: 'The schema has been populated with data from the URL.' });
+        } catch (error) {
+            console.error('Error generating schema from URL:', error);
+            toast({ variant: 'destructive', title: 'Generation Failed', description: 'Could not generate schema from the provided URL.' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <MotionCard
+            className="bg-card/50 border-border shadow-2xl backdrop-blur-xl mb-8"
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+        >
+            <CardHeader>
+                <CardTitle className="flex items-center gap-3 text-2xl"><Link className="text-accent" /> Fetch from URL</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-muted-foreground mb-4 text-sm">Enter a URL to have AI automatically generate a base schema for you.</p>
+                <div className="flex gap-2">
+                    <Input
+                        id="url-fetch"
+                        type="url"
+                        placeholder="https://yourbusiness.com/about"
+                        value={url}
+                        onChange={(e) => setUrl(e.target.value)}
+                        className="bg-background border-border focus:ring-ring focus:ring-2"
+                        disabled={isLoading}
+                    />
+                    <Button onClick={handleGenerate} disabled={isLoading}>
+                        {isLoading ? <motion.div className="w-4 h-4 border-2 border-background/50 border-t-background rounded-full animate-spin" /> : <Wand2 />}
+                        {isLoading ? 'Generating...' : 'Generate with AI'}
+                    </Button>
+                </div>
+            </CardContent>
+        </MotionCard>
+    );
+};
+
 
 const FormField = ({ id, label, placeholder, type = 'text', rows, tooltip, children, value, onChange, name, icon: Icon, ...props }: any) => (
     <div className="flex flex-col gap-2 mb-4">
@@ -174,6 +232,17 @@ export default function Home() {
         businessType: 'LocalBusiness', name: '', url: '', description: '', telephone: '', email: '', streetAddress: '', addressLocality: '', addressRegion: '', postalCode: '', addressCountry: 'US', voiceSummary: '', speakableContent: '.business-summary, .contact-info, .hours-info, .voice-answer', voiceKeywords: 'near me, best, top rated, local, professional', faqQuestions: 'What are your hours?\nWhere are you located?\nDo you offer free estimates?\nHow can I contact you?', serviceAreas: '', ratingValue: '', reviewCount: '', latitude: '', longitude: '', googleMap: '', servicesOffered: '',
     });
 
+    const handleAiSchemaGenerated = (schema: string) => {
+        setGeneratedSchema(schema);
+        const newHistoryItem: HistoryItem = {
+            id: Date.now().toString(),
+            name: 'AI Generated Schema',
+            timestamp: new Date().toLocaleString(),
+            schema: schema
+        };
+        setSchemaHistory(prev => [newHistoryItem, ...prev].slice(0, 10));
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { name: string; value: string } }) => {
         const { name, value } = e.target;
         setFormData((prev: any) => ({ ...prev, [name]: value }));
@@ -302,41 +371,44 @@ export default function Home() {
             <Header />
             <main className="max-w-screen-xl mx-auto p-4 md:p-6 lg:p-8">
                 <div className="grid lg:grid-cols-2 gap-8 items-start">
-                    <MotionCard 
-                      className="bg-card/50 border-border shadow-2xl backdrop-blur-xl"
-                      initial={{ opacity: 0, y: 50 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.2 }}
-                    >
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-3 text-2xl"><SlidersHorizontal className="text-primary"/>Configuration</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex w-full rounded-lg bg-background p-1 mb-6 border border-border">
-                                {Object.keys(TABS).map((tabId) => (
-                                    <button
-                                        key={tabId}
-                                        onClick={() => setActiveTab(tabId)}
-                                        className={`flex-1 p-2.5 rounded-md transition-all duration-200 font-medium text-sm text-muted-foreground relative z-10 flex items-center justify-center gap-2`}
-                                    >
-                                        {activeTab === tabId && <motion.div layoutId="active-tab-indicator" className="absolute inset-0 bg-primary/20 border border-primary/50 rounded-md z-[-1]" />}
-                                        {TABS[tabId as keyof typeof TABS]}
-                                    </button>
-                                ))}
-                            </div>
-                            
-                            <AnimatePresence mode="wait">
-                                {tabContent}
-                            </AnimatePresence>
+                    <div>
+                        <UrlFetchCard onSchemaGenerated={handleAiSchemaGenerated} />
+                        <MotionCard 
+                          className="bg-card/50 border-border shadow-2xl backdrop-blur-xl"
+                          initial={{ opacity: 0, y: 50 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5, delay: 0.2 }}
+                        >
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-3 text-2xl"><SlidersHorizontal className="text-primary"/>Configuration</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex w-full rounded-lg bg-background p-1 mb-6 border border-border">
+                                    {Object.keys(TABS).map((tabId) => (
+                                        <button
+                                            key={tabId}
+                                            onClick={() => setActiveTab(tabId)}
+                                            className={`flex-1 p-2.5 rounded-md transition-all duration-200 font-medium text-sm text-muted-foreground relative z-10 flex items-center justify-center gap-2`}
+                                        >
+                                            {activeTab === tabId && <motion.div layoutId="active-tab-indicator" className="absolute inset-0 bg-primary/20 border border-primary/50 rounded-md z-[-1]" />}
+                                            {TABS[tabId as keyof typeof TABS]}
+                                        </button>
+                                    ))}
+                                </div>
+                                
+                                <AnimatePresence mode="wait">
+                                    {tabContent}
+                                </AnimatePresence>
 
-                            <div className="grid grid-cols-2 gap-3 mt-8">
-                                <Button onClick={generateSchema} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold col-span-2"><Wand2 />Generate Schema</Button>
-                                <Button variant="outline" onClick={copySchema}><Copy/>Copy</Button>
-                                <Button variant="outline" onClick={validateSchema}><CircleCheck/>Validate</Button>
-                                <Button variant="destructive" onClick={resetFields} className="col-span-2"><Trash2/>Reset All</Button>
-                            </div>
-                        </CardContent>
-                    </MotionCard>
+                                <div className="grid grid-cols-2 gap-3 mt-8">
+                                    <Button onClick={generateSchema} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold col-span-2"><Wand2 />Generate Schema</Button>
+                                    <Button variant="outline" onClick={copySchema}><Copy/>Copy</Button>
+                                    <Button variant="outline" onClick={validateSchema}><CircleCheck/>Validate</Button>
+                                    <Button variant="destructive" onClick={resetFields} className="col-span-2"><Trash2/>Reset All</Button>
+                                </div>
+                            </CardContent>
+                        </MotionCard>
+                    </div>
 
                     <div className="lg:sticky lg:top-24 flex flex-col gap-8">
                         <MotionCard 

@@ -1,0 +1,88 @@
+'use server';
+/**
+ * @fileOverview A flow for generating a JSON-LD schema from a given URL.
+ *
+ * - generateSchemaFromUrl - Fetches content from a URL and uses AI to generate a schema.
+ * - GenerateSchemaInput - The input type for the flow.
+ * - GenerateSchemaOutput - The return type for the flow.
+ */
+
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
+import { load } from 'cheerio';
+
+const GenerateSchemaInputSchema = z.object({
+  url: z.string().url().describe('The URL of the webpage to analyze.'),
+});
+export type GenerateSchemaInput = z.infer<typeof GenerateSchemaInputSchema>;
+
+const GenerateSchemaOutputSchema = z.object({
+    schema: z.any().describe("The generated JSON-LD schema object."),
+});
+export type GenerateSchemaOutput = z.infer<typeof GenerateSchemaOutputSchema>;
+
+
+const fetchPageContentTool = ai.defineTool(
+    {
+        name: 'fetchPageContent',
+        description: 'Fetches the HTML content of a given URL and extracts the main text content.',
+        inputSchema: z.object({ url: z.string().url() }),
+        outputSchema: z.string(),
+    },
+    async ({ url }) => {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const html = await response.text();
+            // Use cheerio to parse the HTML and extract text from the body
+            const $ = load(html);
+            // Attempt to find the main content area, otherwise fallback to the whole body
+            const mainContent = $('main').text() || $('body').text();
+            // Clean up the text by removing excessive whitespace
+            return mainContent.replace(/\s\s+/g, ' ').trim();
+        } catch (error) {
+            console.error('Error fetching page content:', error);
+            return 'Failed to fetch or process page content.';
+        }
+    }
+);
+
+
+const generateSchemaFromUrlFlow = ai.defineFlow(
+  {
+    name: 'generateSchemaFromUrlFlow',
+    inputSchema: GenerateSchemaInputSchema,
+    outputSchema: GenerateSchemaOutputSchema,
+  },
+  async (input) => {
+    const prompt = ai.definePrompt({
+      name: 'schemaFromUrlPrompt',
+      input: { schema: z.object({url: z.string()}) },
+      output: { schema: GenerateSchemaOutputSchema },
+      tools: [fetchPageContentTool],
+      prompt: `
+        You are an expert at creating JSON-LD schema markup for websites.
+        Your task is to analyze the content of the given URL and generate a comprehensive and accurate JSON-LD schema.
+        1. Use the 'fetchPageContent' tool to get the text content of the URL: ${input.url}.
+        2. From the content, identify the type of business or entity (e.g., LocalBusiness, Restaurant, ProfessionalService, Article).
+        3. Extract all relevant information: name, description, address, phone number, email, services offered, opening hours, etc.
+        4. Construct a valid JSON-LD schema object. Pay close attention to nesting objects correctly (e.g., address, geo).
+        5. If it is a business, infer the business type.
+        Return only the generated JSON object.
+      `,
+    });
+    
+    const { output } = await prompt({url: input.url});
+    if (!output) {
+      throw new Error('Failed to generate schema from URL.');
+    }
+    return output;
+  }
+);
+
+
+export async function generateSchemaFromUrl(input: GenerateSchemaInput): Promise<GenerateSchemaOutput> {
+  return await generateSchemaFromUrlFlow(input);
+}
