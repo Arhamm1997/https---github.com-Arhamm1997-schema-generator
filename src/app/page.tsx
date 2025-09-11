@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -235,7 +235,12 @@ export default function Home() {
     const [schemaHistory, setSchemaHistory] = useLocalStorage<HistoryItem[]>('schemaHistory', []);
     const [socialProfiles, setSocialProfiles] = useLocalStorage<string[]>('socialProfiles', []);
     const [selectedHistory, setSelectedHistory] = useState<Set<string>>(new Set());
+    const [isMounted, setIsMounted] = useState(false);
     
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     const [formData, setFormData] = useLocalStorage('formData', {
         businessType: 'LocalBusiness', name: '', url: '', description: '', telephone: '', email: '', streetAddress: '', addressLocality: '', addressRegion: '', postalCode: '', addressCountry: 'US', voiceSummary: '', speakableContent: '.business-summary, .contact-info, .hours-info, .voice-answer', voiceKeywords: 'near me, best, top rated, local, professional', faqQuestions: 'What are your hours?\nWhere are you located?\nDo you offer free estimates?\nHow can I contact you?', serviceAreas: '', ratingValue: '', reviewCount: '', latitude: '', longitude: '', googleMap: '', servicesOffered: '',
     });
@@ -435,6 +440,9 @@ export default function Home() {
       }
     }, [activeTab, formData, handleChange, socialProfiles, setSocialProfiles]);
 
+    if (!isMounted) {
+        return null;
+    }
 
     return (
         <div className="min-h-screen w-full">
@@ -562,5 +570,3 @@ export default function Home() {
         </div>
     );
 }
-
-    
