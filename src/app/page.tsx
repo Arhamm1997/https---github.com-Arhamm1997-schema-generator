@@ -1,7 +1,7 @@
-
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,80 +11,61 @@ import { useToast } from '@/hooks/use-toast';
 import useLocalStorage from '@/hooks/use-local-storage';
 import type { HistoryItem } from '@/lib/types';
 import { cleanObject } from '@/lib/utils';
+import { SlidersHorizontal, Code, History, Copy, Trash2, Download, CircleCheck, AlertTriangle, Wand2, Bot } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+
+const MotionCard = motion(Card);
 
 const Header = () => (
-  <header className="py-8 text-center sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-white/10">
+  <motion.header 
+    initial={{ y: -100, opacity: 0 }}
+    animate={{ y: 0, opacity: 1 }}
+    transition={{ duration: 0.5, ease: 'easeOut' }}
+    className="py-8 text-center sticky top-0 z-50"
+  >
     <div className="max-w-7xl mx-auto px-6">
-      <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-3 tracking-tighter">
-        <i className="fas fa-microphone animate-pulse text-primary drop-shadow-[0_0_8px_hsl(var(--primary))]"></i> Voice Search & Speakable Schema Generator
+      <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent mb-3 tracking-tighter flex items-center justify-center gap-4">
+        <Wand2 size={40} className="text-primary animate-float" /> Voice Schema Generator
       </h1>
-      <p className="text-lg text-gray-400 font-medium">Generate optimized schema markup for voice search and speakable content - By Arham</p>
+      <p className="text-lg text-muted-foreground font-medium">AI-powered schema markup for superior voice search visibility.</p>
     </div>
-  </header>
+  </motion.header>
 );
 
-const FeatureCard = ({ icon, title, description }: { icon: string; title: string; description: string }) => (
-    <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-center transition-all duration-300 hover:transform hover:-translate-y-1 hover:bg-white/10 hover:shadow-lg relative overflow-hidden group">
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary to-accent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
-        <i className={`${icon} text-4xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-3 block`}></i>
-        <h4 className="text-gray-200 font-semibold mb-2">{title}</h4>
-        <p className="text-gray-400 text-sm">{description}</p>
-    </div>
-);
-
-
-const Tabs = ({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) => {
-    const tabs = [
-        { id: 'basic', icon: 'fas fa-building', label: 'Basic Info' },
-        { id: 'voice', icon: 'fas fa-microphone', label: 'Voice Search' },
-        { id: 'advanced', icon: 'fas fa-cog', label: 'Advanced' }
-    ];
-
-    return (
-        <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 mb-8">
-            {tabs.map(tab => (
-                <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex-1 p-3 rounded-lg transition-all duration-200 font-medium text-sm text-gray-400 relative z-10 flex items-center justify-center gap-2 ${activeTab === tab.id ? 'bg-gradient-to-r from-primary to-blue-600 text-white shadow-md transform -translate-y-px' : 'hover:bg-white/5 hover:text-gray-300'}`}
-                >
-                    <i className={tab.icon}></i> {tab.label}
-                </button>
-            ))}
-        </div>
-    );
-};
-
-const FormField = ({ id, label, placeholder, type = 'text', rows, tooltip, children, value, onChange, name, ...props }: any) => (
-    <div className="mb-6">
-        <label htmlFor={id} className="flex items-center text-sm text-gray-300 mb-2 font-medium">
-            <i className="fas fa-info-circle mr-2 text-primary w-4"></i>
+const FormField = ({ id, label, placeholder, type = 'text', rows, tooltip, children, value, onChange, name, icon: Icon, ...props }: any) => (
+    <div className="flex flex-col gap-2 mb-4">
+        <label htmlFor={id} className="flex items-center text-sm font-medium text-muted-foreground">
+            {Icon && <Icon className="mr-2 h-4 w-4 text-primary/80" />}
             {label}
             {tooltip && (
-                <span className="ml-2 cursor-help group relative">
-                    <i className="fas fa-info-circle text-gray-500"></i>
-                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 shadow-lg">
-                        {tooltip}
-                    </span>
-                </span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Bot className="ml-2 h-4 w-4 cursor-help text-muted-foreground/50"/>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{tooltip}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
             )}
         </label>
         {type === 'textarea' ? (
-            <Textarea id={id} placeholder={placeholder} rows={rows} value={value} onChange={onChange} name={name} {...props} className="bg-white/5 border-white/10 focus:border-primary focus:bg-white/10" />
+            <Textarea id={id} placeholder={placeholder} rows={rows} value={value} onChange={onChange} name={name} {...props} className="bg-background border-border focus:ring-ring focus:ring-2" />
         ) : type === 'select' ? (
             children
         ) : (
-            <Input id={id} type={type} placeholder={placeholder} value={value} onChange={onChange} name={name} {...props} className="bg-white/5 border-white/10 focus:border-primary focus:bg-white/10" />
+            <Input id={id} type={type} placeholder={placeholder} value={value} onChange={onChange} name={name} {...props} className="bg-background border-border focus:ring-ring focus:ring-2" />
         )}
     </div>
 );
 
 const BasicInfoTab = ({ formData, handleChange }: any) => (
-  <div>
+  <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
     <FormField id="businessType" label="Business Type" type="select">
         <Select name="businessType" onValueChange={(value) => handleChange({ target: { name: 'businessType', value } })} value={formData.businessType}>
-            <SelectTrigger className="bg-white/5 border-white/10 focus:border-primary focus:bg-white/10"><SelectValue placeholder="Select Business Type" /></SelectTrigger>
+            <SelectTrigger className="bg-background border-border focus:ring-ring focus:ring-2"><SelectValue placeholder="Select Business Type" /></SelectTrigger>
             <SelectContent>
                 <SelectItem value="LocalBusiness">Local Business</SelectItem>
                 <SelectItem value="Restaurant">Restaurant</SelectItem>
@@ -111,11 +92,11 @@ const BasicInfoTab = ({ formData, handleChange }: any) => (
       <FormField id="postalCode" name="postalCode" label="Postal Code" placeholder="12345" value={formData.postalCode} onChange={handleChange}/>
       <FormField id="addressCountry" name="addressCountry" label="Country" placeholder="US" value={formData.addressCountry} onChange={handleChange}/>
     </div>
-  </div>
+  </motion.div>
 );
 
 const VoiceSearchTab = ({ formData, handleChange }: any) => (
-  <div>
+  <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
     <FormField id="voiceSummary" name="voiceSummary" label="Voice Search Summary" type="textarea" rows={2} placeholder="Brief summary for voice assistants (20-30 words)..." tooltip="20-30 words for voice assistants" value={formData.voiceSummary} onChange={handleChange}/>
     <FormField id="speakableContent" name="speakableContent" label="Speakable Content CSS Selectors" type="textarea" rows={3} placeholder=".business-summary, .contact-info, .hours-info" value={formData.speakableContent} onChange={handleChange}/>
     <FormField id="voiceKeywords" name="voiceKeywords" label="Voice Search Keywords" placeholder="near me, best, top rated, how to, what is" value={formData.voiceKeywords} onChange={handleChange}/>
@@ -125,18 +106,16 @@ const VoiceSearchTab = ({ formData, handleChange }: any) => (
         <FormField id="ratingValue" name="ratingValue" label="Rating (1-5)" type="number" placeholder="4.8" min="1" max="5" step="0.1" value={formData.ratingValue} onChange={handleChange}/>
         <FormField id="reviewCount" name="reviewCount" label="Review Count" type="number" placeholder="127" value={formData.reviewCount} onChange={handleChange}/>
     </div>
-  </div>
+  </motion.div>
 );
 
 const AdvancedTab = ({ formData, handleChange, socialProfiles, setSocialProfiles }: any) => {
-    const [socialPlatform, setSocialPlatform] = useState('');
     const [socialUrl, setSocialUrl] = useState('');
 
     const addSocialProfile = () => {
         if (!socialUrl) return;
-        setSocialProfiles([...socialProfiles, socialUrl]);
+        setSocialProfiles((prev: string[])=> [...prev, socialUrl]);
         setSocialUrl('');
-        setSocialPlatform('');
     };
 
     const removeSocialProfile = (urlToRemove: string) => {
@@ -144,7 +123,7 @@ const AdvancedTab = ({ formData, handleChange, socialProfiles, setSocialProfiles
     };
 
     return (
-    <div>
+    <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
         <div className="grid md:grid-cols-2 gap-4">
             <FormField id="latitude" name="latitude" label="Latitude" type="number" step="any" placeholder="40.7128" value={formData.latitude} onChange={handleChange}/>
             <FormField id="longitude" name="longitude" label="Longitude" type="number" step="any" placeholder="-74.0060" value={formData.longitude} onChange={handleChange}/>
@@ -153,36 +132,35 @@ const AdvancedTab = ({ formData, handleChange, socialProfiles, setSocialProfiles
         <FormField id="servicesOffered" name="servicesOffered" label="Services Offered" type="textarea" rows={4} placeholder={"Service 1\nService 2\nService 3"} value={formData.servicesOffered} onChange={handleChange}/>
         
         <div className="form-group">
-            <label htmlFor="socialSelect" className="flex items-center text-sm text-gray-300 mb-2 font-medium">
+            <label htmlFor="socialSelect" className="flex items-center text-sm font-medium text-muted-foreground">
                 <i className="fas fa-share-alt mr-2 text-primary"></i>Social Media Profiles
             </label>
-            <div className="grid md:grid-cols-2 gap-4">
-                <Select onValueChange={(value) => {
-                    setSocialPlatform(value);
-                    if (value !== 'custom') setSocialUrl(value);
-                }}>
-                    <SelectTrigger className="bg-white/5 border-white/10"><SelectValue placeholder="Select Platform" /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="https://facebook.com/">Facebook</SelectItem>
-                        <SelectItem value="https://twitter.com/">Twitter/X</SelectItem>
-                        <SelectItem value="https://linkedin.com/company/">LinkedIn</SelectItem>
-                        <SelectItem value="https://instagram.com/">Instagram</SelectItem>
-                        <SelectItem value="custom">Custom URL</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Input placeholder="Enter profile URL" value={socialUrl} onChange={(e) => setSocialUrl(e.target.value)} className="bg-white/5 border-white/10" />
+            <div className="flex gap-2">
+                <Input placeholder="Enter full profile URL (e.g., https://twitter.com/yourbiz)" value={socialUrl} onChange={(e) => setSocialUrl(e.target.value)} className="bg-background border-border" />
+                <Button onClick={addSocialProfile}>Add</Button>
             </div>
-            <Button className="mt-2" onClick={addSocialProfile}><i className="fas fa-plus mr-2"></i>Add Profile</Button>
             <div className="flex flex-wrap gap-2 mt-3">
                 {socialProfiles.map((url: string) => (
-                    <div key={url} className="bg-primary/20 border border-primary/30 px-3 py-1 rounded-full text-xs flex items-center gap-2 text-primary-200">
+                    <motion.div 
+                      key={url} 
+                      className="bg-primary/10 border border-primary/20 px-3 py-1 rounded-full text-xs flex items-center gap-2 text-primary"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
                         {url} <button onClick={() => removeSocialProfile(url)} className="text-red-400 hover:text-red-300">×</button>
-                    </div>
+                    </motion.div>
                 ))}
             </div>
         </div>
-    </div>
+    </motion.div>
     )
+};
+
+
+const TABS = {
+    'basic': 'Basic Info',
+    'voice': 'Voice Search',
+    'advanced': 'Advanced',
 };
 
 export default function Home() {
@@ -193,28 +171,7 @@ export default function Home() {
     const [socialProfiles, setSocialProfiles] = useLocalStorage<string[]>('socialProfiles', []);
     
     const [formData, setFormData] = useLocalStorage('formData', {
-        businessType: 'LocalBusiness',
-        name: '',
-        url: '',
-        description: '',
-        telephone: '',
-        email: '',
-        streetAddress: '',
-        addressLocality: '',
-        addressRegion: '',
-        postalCode: '',
-        addressCountry: 'US',
-        voiceSummary: '',
-        speakableContent: '.business-summary, .contact-info, .hours-info, .voice-answer',
-        voiceKeywords: 'near me, best, top rated, local, professional',
-        faqQuestions: 'What are your hours?\nWhere are you located?\nDo you offer free estimates?\nHow can I contact you?',
-        serviceAreas: '',
-        ratingValue: '',
-        reviewCount: '',
-        latitude: '',
-        longitude: '',
-        googleMap: '',
-        servicesOffered: '',
+        businessType: 'LocalBusiness', name: '', url: '', description: '', telephone: '', email: '', streetAddress: '', addressLocality: '', addressRegion: '', postalCode: '', addressCountry: 'US', voiceSummary: '', speakableContent: '.business-summary, .contact-info, .hours-info, .voice-answer', voiceKeywords: 'near me, best, top rated, local, professional', faqQuestions: 'What are your hours?\nWhere are you located?\nDo you offer free estimates?\nHow can I contact you?', serviceAreas: '', ratingValue: '', reviewCount: '', latitude: '', longitude: '', googleMap: '', servicesOffered: '',
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { name: string; value: string } }) => {
@@ -248,12 +205,17 @@ export default function Home() {
         };
         
         if (formData.faqQuestions) {
-           schema.mainEntity = formData.faqQuestions.split('\n').filter(q => q.trim()).map(q => ({
+           const faqEntity = formData.faqQuestions.split('\n').filter(q => q.trim()).map(q => ({
                 "@type": "Question",
                 "name": q.trim(),
                 "acceptedAnswer": { "@type": "Answer", "text": `Contact us at ${formData.telephone} for more information.` }
             }));
-           schema['@type'] = "FAQPage";
+           if (faqEntity.length > 0) {
+                schema.mainEntityOfPage = {
+                    "@type": "WebPage",
+                    "mainEntity": faqEntity
+                }
+           }
         }
 
         const cleanedSchema = cleanObject({
@@ -278,11 +240,11 @@ export default function Home() {
         
         const newHistoryItem: HistoryItem = {
             id: Date.now().toString(),
-            name: formData.name,
+            name: formData.name || 'Untitled Schema',
             timestamp: new Date().toLocaleString(),
             schema: finalOutput
         };
-        setSchemaHistory(prev => [newHistoryItem, ...prev]);
+        setSchemaHistory(prev => [newHistoryItem, ...prev].slice(0, 10)); // Keep last 10
 
         toast({ title: 'Schema Generated!', description: 'Your voice-optimized schema is ready.'});
     }, [formData, socialProfiles, toast, setSchemaHistory]);
@@ -293,98 +255,151 @@ export default function Home() {
             return;
         }
         navigator.clipboard.writeText(generatedSchema);
-        toast({ title: 'Copied!', description: 'Schema copied to clipboard.' });
+        toast({ title: 'Copied to clipboard!', description: 'Your schema is now in your clipboard.', icon: <Copy className="h-4 w-4" /> });
     };
+    
+    const validateSchema = () => {
+      if(!generatedSchema) {
+        toast({variant: 'destructive', title: 'Nothing to validate', description: 'Please generate a schema first.'});
+        return;
+      }
+      try {
+        const scriptMatches = generatedSchema.match(/<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/g);
+        if (scriptMatches && scriptMatches.length > 0) {
+           scriptMatches.forEach(match => {
+             const jsonContent = match.replace(/<\/?script[^>]*>/g, '').trim();
+             JSON.parse(jsonContent);
+           });
+           toast({title: 'Validation Success', description: 'JSON is well-formed!', icon: <CircleCheck className="h-4 w-4 text-green-500"/>});
+        } else {
+           toast({variant: 'destructive', title: 'Validation Error', description: 'No JSON-LD script found.'});
+        }
+      } catch (e: any) {
+        toast({variant: 'destructive', title: 'Validation Error', description: `Invalid JSON: ${e.message}`});
+      }
+    }
+
 
     const resetFields = () => {
-        setFormData({
-            businessType: 'LocalBusiness', name: '', url: '', description: '', telephone: '', email: '', streetAddress: '', addressLocality: '', addressRegion: '', postalCode: '', addressCountry: 'US', voiceSummary: '', speakableContent: '.business-summary, .contact-info, .hours-info, .voice-answer', voiceKeywords: 'near me, best, top rated, local, professional', faqQuestions: 'What are your hours?\nWhere are you located?\nDo you offer free estimates?\nHow can I contact you?', serviceAreas: '', ratingValue: '', reviewCount: '', latitude: '', longitude: '', googleMap: '', servicesOffered: '',
-        });
+        setFormData({ businessType: 'LocalBusiness', name: '', url: '', description: '', telephone: '', email: '', streetAddress: '', addressLocality: '', addressRegion: '', postalCode: '', addressCountry: 'US', voiceSummary: '', speakableContent: '.business-summary, .contact-info, .hours-info, .voice-answer', voiceKeywords: 'near me, best, top rated, local, professional', faqQuestions: 'What are your hours?\nWhere are you located?\nDo you offer free estimates?\nHow can I contact you?', serviceAreas: '', ratingValue: '', reviewCount: '', latitude: '', longitude: '', googleMap: '', servicesOffered: '', });
         setSocialProfiles([]);
         setGeneratedSchema('');
         toast({ title: 'Fields Reset', description: 'All form fields have been cleared.' });
     };
 
+    const tabContent = useMemo(() => {
+      switch(activeTab) {
+        case 'basic': return <BasicInfoTab formData={formData} handleChange={handleChange} />;
+        case 'voice': return <VoiceSearchTab formData={formData} handleChange={handleChange} />;
+        case 'advanced': return <AdvancedTab formData={formData} handleChange={handleChange} socialProfiles={socialProfiles} setSocialProfiles={setSocialProfiles} />;
+        default: return null;
+      }
+    }, [activeTab, formData, handleChange, socialProfiles, setSocialProfiles]);
+
+
     return (
-        <div className="min-h-screen">
+        <div className="min-h-screen w-full">
             <Header />
-            <main className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
+            <main className="max-w-screen-xl mx-auto p-4 md:p-6 lg:p-8">
                 <div className="grid lg:grid-cols-2 gap-8 items-start">
-                    <Card className="bg-card/80 border-white/10 shadow-2xl backdrop-blur-xl">
+                    <MotionCard 
+                      className="bg-card/50 border-border shadow-2xl backdrop-blur-xl"
+                      initial={{ opacity: 0, y: 50 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.2 }}
+                    >
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-3 text-2xl"><i className="fas fa-cogs text-primary"></i>Schema Configuration</CardTitle>
+                            <CardTitle className="flex items-center gap-3 text-2xl"><SlidersHorizontal className="text-primary"/>Configuration</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-xl p-6 mb-8">
-                                <h3 className="flex items-center gap-3 font-semibold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-4"><i className="fas fa-magic"></i>Voice Search Features</h3>
-                                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 group">
-                                    <FeatureCard icon="fas fa-microphone-alt" title="Speakable Schema" description="Optimize content for voice assistants" />
-                                    <FeatureCard icon="fas fa-map-marker-alt" title="Local Voice Search" description="Target 'near me' queries" />
-                                    <FeatureCard icon="fas fa-question-circle" title="FAQ Optimization" description="Voice-friendly Q&A format" />
-                                    <FeatureCard icon="fas fa-mobile-alt" title="Mobile First" description="Optimized for mobile voice search" />
-                                </div>
+                            <div className="flex w-full rounded-lg bg-background p-1 mb-6 border border-border">
+                                {Object.keys(TABS).map((tabId) => (
+                                    <button
+                                        key={tabId}
+                                        onClick={() => setActiveTab(tabId)}
+                                        className={`flex-1 p-2.5 rounded-md transition-all duration-200 font-medium text-sm text-muted-foreground relative z-10 flex items-center justify-center gap-2`}
+                                    >
+                                        {activeTab === tabId && <motion.div layoutId="active-tab-indicator" className="absolute inset-0 bg-primary/20 border border-primary/50 rounded-md z-[-1]" />}
+                                        {TABS[tabId as keyof typeof TABS]}
+                                    </button>
+                                ))}
                             </div>
-                            <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
-                            {activeTab === 'basic' && <BasicInfoTab formData={formData} handleChange={handleChange} />}
-                            {activeTab === 'voice' && <VoiceSearchTab formData={formData} handleChange={handleChange} />}
-                            {activeTab === 'advanced' && <AdvancedTab formData={formData} handleChange={handleChange} socialProfiles={socialProfiles} setSocialProfiles={setSocialProfiles} />}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
-                                <Button onClick={generateSchema}><i className="fas fa-magic mr-2"></i>Generate</Button>
-                                <Button variant="secondary" onClick={copySchema}><i className="fas fa-copy mr-2"></i>Copy</Button>
-                                <Button variant="outline" onClick={() => {
-                                  if(!generatedSchema) return toast({variant: 'destructive', title: 'Nothing to validate'});
-                                  try {
-                                    const scriptMatches = generatedSchema.match(/<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/g);
-                                    if (scriptMatches && scriptMatches.length > 0) {
-                                       scriptMatches.forEach(match => {
-                                         const jsonContent = match.replace(/<\/?script[^>]*>/g, '').trim();
-                                         JSON.parse(jsonContent);
-                                       });
-                                       toast({title: 'Validation', description: 'JSON is well-formed!'});
-                                    } else {
-                                       toast({variant: 'destructive', title: 'Validation Error', description: 'No JSON-LD script found.'});
-                                    }
-                                  } catch (e: any) {
-                                    toast({variant: 'destructive', title: 'Validation Error', description: `Invalid JSON: ${e.message}`});
-                                  }
-                                }}><i className="fas fa-check-circle mr-2"></i>Validate</Button>
-                                <Button variant="destructive" onClick={resetFields}><i className="fas fa-sync-alt mr-2"></i>Reset</Button>
+                            
+                            <AnimatePresence mode="wait">
+                                {tabContent}
+                            </AnimatePresence>
+
+                            <div className="grid grid-cols-2 gap-3 mt-8">
+                                <Button onClick={generateSchema} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold col-span-2"><Wand2 />Generate Schema</Button>
+                                <Button variant="outline" onClick={copySchema}><Copy/>Copy</Button>
+                                <Button variant="outline" onClick={validateSchema}><CircleCheck/>Validate</Button>
+                                <Button variant="destructive" onClick={resetFields} className="col-span-2"><Trash2/>Reset All</Button>
                             </div>
                         </CardContent>
-                    </Card>
+                    </MotionCard>
 
-                    <div className="lg:sticky lg:top-24">
-                        <Card className="bg-card/80 border-white/10 shadow-2xl backdrop-blur-xl">
+                    <div className="lg:sticky lg:top-24 flex flex-col gap-8">
+                        <MotionCard 
+                          className="bg-card/50 border-border shadow-2xl backdrop-blur-xl"
+                          initial={{ opacity: 0, y: 50 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5, delay: 0.3 }}
+                        >
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-3 text-2xl"><i className="fas fa-code text-primary"></i>Schema Preview</CardTitle>
+                                <CardTitle className="flex items-center gap-3 text-2xl"><Code className="text-accent"/>Schema Preview</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="bg-black/40 border border-white/10 rounded-xl p-4 font-mono text-xs max-h-96 overflow-auto relative text-gray-300">
-                                    <pre>{generatedSchema || '// Your generated schema will appear here...'}</pre>
+                                <div className="bg-background border border-border rounded-lg p-4 font-mono text-xs max-h-96 overflow-auto relative text-muted-foreground">
+                                    <AnimatePresence>
+                                    <motion.pre
+                                        key={generatedSchema}
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                    >
+                                        {generatedSchema || '// Your generated schema will appear here...'}
+                                    </motion.pre>
+                                    </AnimatePresence>
                                 </div>
                             </CardContent>
-                        </Card>
-                        <Card className="bg-card/80 border-white/10 shadow-2xl backdrop-blur-xl mt-8">
+                        </MotionCard>
+                        <MotionCard 
+                          className="bg-card/50 border-border shadow-2xl backdrop-blur-xl"
+                          initial={{ opacity: 0, y: 50 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5, delay: 0.4 }}
+                        >
                              <CardHeader>
-                                <CardTitle className="flex items-center gap-3 text-2xl"><i className="fas fa-history text-primary"></i>Schema History</CardTitle>
+                                <CardTitle className="flex items-center gap-3 text-2xl"><History className="text-primary"/>Schema History</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="max-h-60 overflow-auto space-y-3 pr-2">
-                                {schemaHistory.length > 0 ? schemaHistory.map(item => (
-                                    <div key={item.id} onClick={() => setGeneratedSchema(item.schema)} className="bg-white/5 border border-white/10 p-3 rounded-lg cursor-pointer hover:bg-white/10 transition-colors">
-                                        <p className="font-semibold text-gray-200">{item.name}</p>
-                                        <p className="text-xs text-gray-400">{item.timestamp}</p>
-                                    </div>
-                                )) : <p className="text-gray-500 text-center py-4">No history yet.</p>}
+                                <div className="max-h-60 overflow-auto space-y-2 pr-2">
+                                <AnimatePresence>
+                                {schemaHistory.length > 0 ? schemaHistory.map((item, index) => (
+                                    <motion.div 
+                                      key={item.id} 
+                                      onClick={() => setGeneratedSchema(item.schema)} 
+                                      className="bg-background border border-border p-3 rounded-lg cursor-pointer hover:bg-primary/10 hover:border-primary/50 transition-colors"
+                                      initial={{ opacity: 0, y: -10 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      exit={{ opacity: 0, x: -20 }}
+                                      transition={{ delay: index * 0.05 }}
+                                    >
+                                        <p className="font-semibold text-foreground truncate">{item.name}</p>
+                                        <p className="text-xs text-muted-foreground">{item.timestamp}</p>
+                                    </motion.div>
+                                )) : <div className="text-muted-foreground text-center py-8 flex flex-col items-center gap-4">
+                                  <History size={40} />
+                                  <p>No history yet. <br/> Generated schemas will appear here.</p>
+                                  </div>}
+                                </AnimatePresence>
                                 </div>
-                                {schemaHistory.length > 0 && <Button variant="destructive" className="w-full mt-4" onClick={() => setSchemaHistory([])}><i className="fas fa-trash-alt mr-2" />Clear History</Button>}
+                                {schemaHistory.length > 0 && <Button variant="destructive" className="w-full mt-4" onClick={() => setSchemaHistory([])}><Trash2 />Clear History</Button>}
                             </CardContent>
-                        </Card>
+                        </MotionCard>
                     </div>
                 </div>
             </main>
         </div>
     );
 }
-
-    
