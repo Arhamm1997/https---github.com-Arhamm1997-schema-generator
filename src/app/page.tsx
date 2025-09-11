@@ -14,6 +14,7 @@ import { cleanObject } from '@/lib/utils';
 import { SlidersHorizontal, Code, History, Copy, Trash2, Download, CircleCheck, AlertTriangle, Wand2, Bot, Link } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { generateSchemaFromUrl } from '@/ai/flows/generate-schema-from-url';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 const MotionCard = motion(Card);
@@ -34,7 +35,7 @@ const Header = () => (
   </motion.header>
 );
 
-const UrlFetchCard = ({ onSchemaGenerated }: { onSchemaGenerated: (schema: string) => void }) => {
+const UrlFetchCard = ({ onSchemaGenerated }: { onSchemaGenerated: (schema: string, name: string) => void }) => {
     const [url, setUrl] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
@@ -48,7 +49,8 @@ const UrlFetchCard = ({ onSchemaGenerated }: { onSchemaGenerated: (schema: strin
         try {
             const result = await generateSchemaFromUrl({ url });
             const schemaString = `<script type="application/ld+json">\n${JSON.stringify(result.schema, null, 2)}\n</script>`;
-            onSchemaGenerated(schemaString);
+            const name = result.schema.name || url;
+            onSchemaGenerated(schemaString, name);
             toast({ title: 'Schema Generated from URL!', description: 'The schema has been populated with data from the URL.' });
         } catch (error) {
             console.error('Error generating schema from URL:', error);
@@ -227,16 +229,17 @@ export default function Home() {
     const [generatedSchema, setGeneratedSchema] = useState('');
     const [schemaHistory, setSchemaHistory] = useLocalStorage<HistoryItem[]>('schemaHistory', []);
     const [socialProfiles, setSocialProfiles] = useLocalStorage<string[]>('socialProfiles', []);
+    const [selectedHistory, setSelectedHistory] = useState<Set<string>>(new Set());
     
     const [formData, setFormData] = useLocalStorage('formData', {
         businessType: 'LocalBusiness', name: '', url: '', description: '', telephone: '', email: '', streetAddress: '', addressLocality: '', addressRegion: '', postalCode: '', addressCountry: 'US', voiceSummary: '', speakableContent: '.business-summary, .contact-info, .hours-info, .voice-answer', voiceKeywords: 'near me, best, top rated, local, professional', faqQuestions: 'What are your hours?\nWhere are you located?\nDo you offer free estimates?\nHow can I contact you?', serviceAreas: '', ratingValue: '', reviewCount: '', latitude: '', longitude: '', googleMap: '', servicesOffered: '',
     });
 
-    const handleAiSchemaGenerated = (schema: string) => {
+    const handleAiSchemaGenerated = (schema: string, name: string) => {
         setGeneratedSchema(schema);
         const newHistoryItem: HistoryItem = {
             id: Date.now().toString(),
-            name: 'AI Generated Schema',
+            name: name || 'AI Generated Schema',
             timestamp: new Date().toLocaleString(),
             schema: schema
         };
@@ -256,8 +259,14 @@ export default function Home() {
             return;
         }
 
-        const schema: any = {
+        const baseSchema = {
             "@context": "https://schema.org",
+            "@type": "WebSite",
+            "url": formData.url,
+            "name": formData.name,
+        }
+
+        const mainEntity: any = {
             "@type": formData.businessType,
             "name": formData.name,
             "description": formData.description,
@@ -280,15 +289,15 @@ export default function Home() {
                 "acceptedAnswer": { "@type": "Answer", "text": `Contact us at ${formData.telephone} for more information.` }
             }));
            if (faqEntity.length > 0) {
-                schema.mainEntityOfPage = {
+                mainEntity.mainEntityOfPage = {
                     "@type": "WebPage",
                     "mainEntity": faqEntity
                 }
            }
         }
 
-        const cleanedSchema = cleanObject({
-          ...schema,
+        const cleanedMainEntity = cleanObject({
+          ...mainEntity,
           email: formData.email,
           geo: (formData.latitude && formData.longitude) ? { "@type": "GeoCoordinates", latitude: parseFloat(formData.latitude), longitude: parseFloat(formData.longitude) } : undefined,
           hasMap: formData.googleMap,
@@ -296,11 +305,23 @@ export default function Home() {
           areaServed: formData.serviceAreas ? formData.serviceAreas.split(',').map(area => ({ "@type": "Place", "name": area.trim() })) : undefined,
           makesOffer: formData.servicesOffered ? formData.servicesOffered.split('\n').map(s => ({ "@type": "Offer", "itemOffered": { "@type": "Service", "name": s.trim() }})) : undefined,
           sameAs: socialProfiles.length > 0 ? socialProfiles : undefined,
-          speakable: formData.speakableContent ? { "@type": "SpeakableSpecification", cssSelector: formData.speakableContent.split(',').map(s => s.trim()) } : undefined,
-          keywords: formData.voiceKeywords,
         });
+
+        const speakableContent = formData.speakableContent ? {
+             "@type": "SpeakableSpecification", 
+             cssSelector: formData.speakableContent.split(',').map(s => s.trim()) 
+        } : undefined;
         
-        let fullScript = `<script type="application/ld+json">\n${JSON.stringify(cleanedSchema, null, 2)}\n</script>`;
+        const finalSchema = {
+            ...baseSchema,
+            mainEntity: cleanedMainEntity,
+            speakable: speakableContent,
+            keywords: formData.voiceKeywords,
+        }
+
+        const cleanedFinalSchema = cleanObject(finalSchema);
+        
+        let fullScript = `<script type="application/ld+json">\n${JSON.stringify(cleanedFinalSchema, null, 2)}\n</script>`;
         
         const metaTags = `<!-- Voice Search Optimization Meta Tags -->\n<meta name="voice-summary" content="${formData.voiceSummary || formData.description}">\n<meta name="description" content="${formData.description}">`;
         
@@ -354,6 +375,50 @@ export default function Home() {
         setSocialProfiles([]);
         setGeneratedSchema('');
         toast({ title: 'Fields Reset', description: 'All form fields have been cleared.' });
+    };
+
+    const handleHistorySelection = (id: string) => {
+        setSelectedHistory(prev => {
+            const newSelection = new Set(prev);
+            if (newSelection.has(id)) {
+                newSelection.delete(id);
+            } else {
+                newSelection.add(id);
+            }
+            return newSelection;
+        });
+    };
+
+    const handleRenameHistoryItem = (id: string, newName: string) => {
+        setSchemaHistory(prev => prev.map(item => item.id === id ? { ...item, name: newName } : item));
+    };
+
+    const deleteSelectedHistory = () => {
+        if (selectedHistory.size === 0) {
+            toast({ variant: 'destructive', title: 'No items selected', description: 'Please select items to delete.' });
+            return;
+        }
+        setSchemaHistory(prev => prev.filter(item => !selectedHistory.has(item.id)));
+        setSelectedHistory(new Set());
+        toast({ title: 'Selected items deleted.' });
+    };
+
+    const downloadSelectedHistory = () => {
+        if (selectedHistory.size === 0) {
+            toast({ variant: 'destructive', title: 'No items selected', description: 'Please select items to download.' });
+            return;
+        }
+        schemaHistory.forEach(item => {
+            if (selectedHistory.has(item.id)) {
+                const blob = new Blob([item.schema], { type: 'text/html' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `${item.name.replace(/ /g, '_')}.html`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        });
     };
 
     const tabContent = useMemo(() => {
@@ -448,17 +513,28 @@ export default function Home() {
                                 <div className="max-h-60 overflow-auto space-y-2 pr-2">
                                 <AnimatePresence>
                                 {schemaHistory.length > 0 ? schemaHistory.map((item, index) => (
-                                    <motion.div 
-                                      key={item.id} 
-                                      onClick={() => setGeneratedSchema(item.schema)} 
-                                      className="bg-background border border-border p-3 rounded-lg cursor-pointer hover:bg-primary/10 hover:border-primary/50 transition-colors"
-                                      initial={{ opacity: 0, y: -10 }}
-                                      animate={{ opacity: 1, y: 0 }}
-                                      exit={{ opacity: 0, x: -20 }}
-                                      transition={{ delay: index * 0.05 }}
+                                    <motion.div
+                                        key={item.id}
+                                        className="bg-background border border-border p-3 rounded-lg flex items-center gap-4"
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, x: -20 }}
+                                        transition={{ delay: index * 0.05 }}
                                     >
-                                        <p className="font-semibold text-foreground truncate">{item.name}</p>
-                                        <p className="text-xs text-muted-foreground">{item.timestamp}</p>
+                                        <Checkbox 
+                                            id={`history-${item.id}`}
+                                            checked={selectedHistory.has(item.id)}
+                                            onCheckedChange={() => handleHistorySelection(item.id)}
+                                        />
+                                        <div className="flex-grow cursor-pointer" onClick={() => setGeneratedSchema(item.schema)}>
+                                            <Input
+                                                className="bg-transparent border-none p-0 h-auto text-foreground font-semibold"
+                                                value={item.name}
+                                                onChange={(e) => handleRenameHistoryItem(item.id, e.target.value)}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                            <p className="text-xs text-muted-foreground">{item.timestamp}</p>
+                                        </div>
                                     </motion.div>
                                 )) : <div className="text-muted-foreground text-center py-8 flex flex-col items-center gap-4">
                                   <History size={40} />
@@ -466,7 +542,13 @@ export default function Home() {
                                   </div>}
                                 </AnimatePresence>
                                 </div>
-                                {schemaHistory.length > 0 && <Button variant="destructive" className="w-full mt-4" onClick={() => setSchemaHistory([])}><Trash2 />Clear History</Button>}
+                                {schemaHistory.length > 0 && 
+                                    <div className="grid grid-cols-2 gap-2 mt-4">
+                                        <Button variant="outline" onClick={downloadSelectedHistory} disabled={selectedHistory.size === 0}><Download/>Download Selected</Button>
+                                        <Button variant="destructive" onClick={deleteSelectedHistory} disabled={selectedHistory.size === 0}><Trash2/>Delete Selected</Button>
+                                        <Button variant="destructive" className="col-span-2" onClick={() => {setSchemaHistory([]); setSelectedHistory(new Set())}}><Trash2 />Clear All History</Button>
+                                    </div>
+                                }
                             </CardContent>
                         </MotionCard>
                     </div>
