@@ -124,7 +124,7 @@ const FormField = ({ id, label, placeholder, type = 'text', rows, tooltip, child
 const BasicInfoTab = ({ formData, handleChange, handleSelectChange }: any) => (
   <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
     <FormField id="businessType" label="Business Type" type="select">
-        <Select name="businessType" onValueChange={handleSelectChange('businessType')} value={formData.businessType}>
+        <Select name="businessType" onValueChange={(value) => handleSelectChange('businessType', value)} value={formData.businessType}>
             <SelectTrigger className="bg-background border-border focus:ring-ring focus:ring-2"><SelectValue placeholder="Select Business Type" /></SelectTrigger>
             <SelectContent>
                 <SelectItem value="LocalBusiness">Local Business</SelectItem>
@@ -261,7 +261,7 @@ export default function Home() {
         setFormData((prev: any) => ({ ...prev, [name]: value }));
     }, [setFormData]);
 
-    const handleSelectChange = useCallback((name: string) => (value: string) => {
+    const handleSelectChange = useCallback((name: string, value: string) => {
         setFormData((prev: any) => ({ ...prev, [name]: value }));
     }, [setFormData]);
 
@@ -574,9 +574,3 @@ export default function Home() {
         </div>
     );
 }
-
-    
-
-    
-
-    
