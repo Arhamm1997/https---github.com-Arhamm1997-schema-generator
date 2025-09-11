@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
@@ -256,10 +257,10 @@ export default function Home() {
         setSchemaHistory(prev => [newHistoryItem, ...prev].slice(0, 10));
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { name: string; value: string } }) => {
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { name: string; value: string } }) => {
         const { name, value } = e.target;
         setFormData((prev: any) => ({ ...prev, [name]: value }));
-    };
+    }, [setFormData]);
 
     const generateSchema = useCallback(() => {
         const { name, description, telephone, streetAddress, addressLocality, addressRegion } = formData;
@@ -570,3 +571,5 @@ export default function Home() {
         </div>
     );
 }
+
+    
