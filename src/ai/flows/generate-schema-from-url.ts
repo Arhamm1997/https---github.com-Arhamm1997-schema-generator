@@ -63,16 +63,16 @@ const generateSchemaFromUrlFlow = ai.defineFlow(
       output: { schema: GenerateSchemaOutputSchema },
       tools: [fetchPageContentTool],
       prompt: `
-        You are an expert at creating voice-search-optimized JSON-LD schema markup for websites, following schema.org standards.
+        You are an expert at creating voice-search-optimized JSON-LD schema markup, following schema.org standards.
         Your task is to analyze the content of the given URL and generate a comprehensive and accurate JSON-LD schema.
 
         1.  **Fetch Content**: Use the 'fetchPageContent' tool to get the text content of the URL: ${input.url}.
-        2.  **Identify Business Type**: From the content, identify the most appropriate business type. You MUST choose from this list: [LocalBusiness, Restaurant, HVACBusiness, ProfessionalService, HomeAndConstructionBusiness, MedicalBusiness, LegalService, AutomotiveBusiness, Article, WebSite]. Default to 'LocalBusiness' if unsure.
-        3.  **Extract Information**: Extract all relevant information: name, description, address, phone number, email, services offered, opening hours, etc.
-        4.  **Create Voice-Optimized Description**: The 'description' field should be conversational and concise (20-30 words), suitable for a voice assistant to read aloud.
-        5.  **Add Speakable Property**: Include a 'speakable' property with a "SpeakableSpecification" type. For the 'cssSelector', suggest some likely CSS selectors where the main content can be found (e.g., [".main-content", ".article-body", "#summary"]).
-        6.  **Construct Schema**: Build a valid JSON-LD schema object. Pay close attention to nesting objects correctly (e.g., address, geo).
-
+        2.  **Identify Business Type**: From the content, identify the most appropriate business type for the 'mainEntity'. You MUST choose from this list: [LocalBusiness, Restaurant, HVACBusiness, ProfessionalService, HomeAndConstructionBusiness, MedicalBusiness, LegalService, AutomotiveBusiness, Article]. Default to 'LocalBusiness' if unsure.
+        3.  **Extract Information**: Extract all relevant information for the main entity: name, description, address, phone number, email, services offered, opening hours, etc.
+        4.  **Create Voice-Optimized Description**: The 'description' field for the main entity should be conversational and concise (20-30 words), suitable for a voice assistant to read aloud.
+        5.  **Construct Schema**: Build a valid JSON-LD schema. The root object should be of '@type': 'WebSite'. The business/article information should be nested inside the 'mainEntity' property.
+        6.  **Add Speakable Property**: To the root 'WebSite' object, add a 'speakable' property with a "SpeakableSpecification" type. For the 'cssSelector', suggest some likely CSS selectors where the main content can be found (e.g., ["main", "article", "[role=main]"]). Do not invent specific, complex selectors.
+        
         Return only the generated JSON object. Do not include any explanatory text.
       `,
     });
