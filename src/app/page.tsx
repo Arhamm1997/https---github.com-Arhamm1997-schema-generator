@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
@@ -123,10 +121,10 @@ const FormField = ({ id, label, placeholder, type = 'text', rows, tooltip, child
     </div>
 );
 
-const BasicInfoTab = ({ formData, handleChange }: any) => (
+const BasicInfoTab = ({ formData, handleChange, handleSelectChange }: any) => (
   <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
     <FormField id="businessType" label="Business Type" type="select">
-        <Select name="businessType" onValueChange={handleChange('businessType')} value={formData.businessType}>
+        <Select name="businessType" onValueChange={handleSelectChange('businessType')} value={formData.businessType}>
             <SelectTrigger className="bg-background border-border focus:ring-ring focus:ring-2"><SelectValue placeholder="Select Business Type" /></SelectTrigger>
             <SelectContent>
                 <SelectItem value="LocalBusiness">Local Business</SelectItem>
@@ -142,36 +140,36 @@ const BasicInfoTab = ({ formData, handleChange }: any) => (
         </Select>
     </FormField>
     <div className="grid md:grid-cols-2 gap-4">
-      <FormField id="name" name="name" label="Business Name" placeholder="Your Business Name" value={formData.name} onChange={handleChange()} />
-      <FormField id="url" name="url" label="Website URL" placeholder="https://yourbusiness.com" value={formData.url} onChange={handleChange()}/>
+      <FormField id="name" name="name" label="Business Name" placeholder="Your Business Name" value={formData.name} onChange={handleChange} />
+      <FormField id="url" name="url" label="Website URL" placeholder="https://yourbusiness.com" value={formData.url} onChange={handleChange}/>
     </div>
-    <FormField id="description" name="description" label="Business Description" type="textarea" rows={3} placeholder="Describe your business..." tooltip="Keep it conversational for voice search" value={formData.description} onChange={handleChange()}/>
+    <FormField id="description" name="description" label="Business Description" type="textarea" rows={3} placeholder="Describe your business..." tooltip="Keep it conversational for voice search" value={formData.description} onChange={handleChange}/>
     <div className="grid md:grid-cols-2 gap-4">
-      <FormField id="telephone" name="telephone" label="Phone Number" placeholder="+1-555-123-4567" value={formData.telephone} onChange={handleChange()}/>
-      <FormField id="email" name="email" label="Email Address" placeholder="info@yourbusiness.com" value={formData.email} onChange={handleChange()}/>
+      <FormField id="telephone" name="telephone" label="Phone Number" placeholder="+1-555-123-4567" value={formData.telephone} onChange={handleChange}/>
+      <FormField id="email" name="email" label="Email Address" placeholder="info@yourbusiness.com" value={formData.email} onChange={handleChange}/>
     </div>
-    <FormField id="streetAddress" name="streetAddress" label="Street Address" placeholder="123 Main Street" value={formData.streetAddress} onChange={handleChange()}/>
+    <FormField id="streetAddress" name="streetAddress" label="Street Address" placeholder="123 Main Street" value={formData.streetAddress} onChange={handleChange}/>
      <div className="grid md:grid-cols-2 gap-4">
-      <FormField id="addressLocality" name="addressLocality" label="City" placeholder="Your City" value={formData.addressLocality} onChange={handleChange()}/>
-      <FormField id="addressRegion" name="addressRegion" label="State/Region" placeholder="State" value={formData.addressRegion} onChange={handleChange()}/>
+      <FormField id="addressLocality" name="addressLocality" label="City" placeholder="Your City" value={formData.addressLocality} onChange={handleChange}/>
+      <FormField id="addressRegion" name="addressRegion" label="State/Region" placeholder="State" value={formData.addressRegion} onChange={handleChange}/>
     </div>
      <div className="grid md:grid-cols-2 gap-4">
-      <FormField id="postalCode" name="postalCode" label="Postal Code" placeholder="12345" value={formData.postalCode} onChange={handleChange()}/>
-      <FormField id="addressCountry" name="addressCountry" label="Country" placeholder="US" value={formData.addressCountry} onChange={handleChange()}/>
+      <FormField id="postalCode" name="postalCode" label="Postal Code" placeholder="12345" value={formData.postalCode} onChange={handleChange}/>
+      <FormField id="addressCountry" name="addressCountry" label="Country" placeholder="US" value={formData.addressCountry} onChange={handleChange}/>
     </div>
   </motion.div>
 );
 
 const VoiceSearchTab = ({ formData, handleChange }: any) => (
   <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
-    <FormField id="voiceSummary" name="voiceSummary" label="Voice Search Summary" type="textarea" rows={2} placeholder="Brief summary for voice assistants (20-30 words)..." tooltip="20-30 words for voice assistants" value={formData.voiceSummary} onChange={handleChange()}/>
-    <FormField id="speakableContent" name="speakableContent" label="Speakable Content CSS Selectors" type="textarea" rows={3} placeholder=".business-summary, .contact-info, .hours-info" value={formData.speakableContent} onChange={handleChange()}/>
-    <FormField id="voiceKeywords" name="voiceKeywords" label="Voice Search Keywords" placeholder="near me, best, top rated, how to, what is" value={formData.voiceKeywords} onChange={handleChange()}/>
-    <FormField id="faqQuestions" name="faqQuestions" label="Common Voice Questions" type="textarea" rows={4} placeholder={"What are your hours?\nWhere are you located?\nDo you offer free estimates?"} value={formData.faqQuestions} onChange={handleChange()}/>
-    <FormField id="serviceAreas" name="serviceAreas" label="Service Areas (for 'near me' searches)" placeholder="Downtown, Midtown, Suburbs, City Name" value={formData.serviceAreas} onChange={handleChange()}/>
+    <FormField id="voiceSummary" name="voiceSummary" label="Voice Search Summary" type="textarea" rows={2} placeholder="Brief summary for voice assistants (20-30 words)..." tooltip="20-30 words for voice assistants" value={formData.voiceSummary} onChange={handleChange}/>
+    <FormField id="speakableContent" name="speakableContent" label="Speakable Content CSS Selectors" type="textarea" rows={3} placeholder=".business-summary, .contact-info, .hours-info" value={formData.speakableContent} onChange={handleChange}/>
+    <FormField id="voiceKeywords" name="voiceKeywords" label="Voice Search Keywords" placeholder="near me, best, top rated, how to, what is" value={formData.voiceKeywords} onChange={handleChange}/>
+    <FormField id="faqQuestions" name="faqQuestions" label="Common Voice Questions" type="textarea" rows={4} placeholder={"What are your hours?\nWhere are you located?\nDo you offer free estimates?"} value={formData.faqQuestions} onChange={handleChange}/>
+    <FormField id="serviceAreas" name="serviceAreas" label="Service Areas (for 'near me' searches)" placeholder="Downtown, Midtown, Suburbs, City Name" value={formData.serviceAreas} onChange={handleChange}/>
      <div className="grid md:grid-cols-2 gap-4">
-        <FormField id="ratingValue" name="ratingValue" label="Rating (1-5)" type="number" placeholder="4.8" min="1" max="5" step="0.1" value={formData.ratingValue} onChange={handleChange()}/>
-        <FormField id="reviewCount" name="reviewCount" label="Review Count" type="number" placeholder="127" value={formData.reviewCount} onChange={handleChange()}/>
+        <FormField id="ratingValue" name="ratingValue" label="Rating (1-5)" type="number" placeholder="4.8" min="1" max="5" step="0.1" value={formData.ratingValue} onChange={handleChange}/>
+        <FormField id="reviewCount" name="reviewCount" label="Review Count" type="number" placeholder="127" value={formData.reviewCount} onChange={handleChange}/>
     </div>
   </motion.div>
 );
@@ -192,11 +190,11 @@ const AdvancedTab = ({ formData, handleChange, socialProfiles, setSocialProfiles
     return (
     <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
         <div className="grid md:grid-cols-2 gap-4">
-            <FormField id="latitude" name="latitude" label="Latitude" type="number" step="any" placeholder="40.7128" value={formData.latitude} onChange={handleChange()}/>
-            <FormField id="longitude" name="longitude" label="Longitude" type="number" step="any" placeholder="-74.0060" value={formData.longitude} onChange={handleChange()}/>
+            <FormField id="latitude" name="latitude" label="Latitude" type="number" step="any" placeholder="40.7128" value={formData.latitude} onChange={handleChange}/>
+            <FormField id="longitude" name="longitude" label="Longitude" type="number" step="any" placeholder="-74.0060" value={formData.longitude} onChange={handleChange}/>
         </div>
-        <FormField id="googleMap" name="googleMap" label="Google Maps URL" type="url" placeholder="https://maps.google.com/..." value={formData.googleMap} onChange={handleChange()}/>
-        <FormField id="servicesOffered" name="servicesOffered" label="Services Offered" type="textarea" rows={4} placeholder={"Service 1\nService 2\nService 3"} value={formData.servicesOffered} onChange={handleChange()}/>
+        <FormField id="googleMap" name="googleMap" label="Google Maps URL" type="url" placeholder="https://maps.google.com/..." value={formData.googleMap} onChange={handleChange}/>
+        <FormField id="servicesOffered" name="servicesOffered" label="Services Offered" type="textarea" rows={4} placeholder={"Service 1\nService 2\nService 3"} value={formData.servicesOffered} onChange={handleChange}/>
         
         <div className="form-group">
             <label htmlFor="socialSelect" className="flex items-center text-sm font-medium text-muted-foreground">
@@ -258,16 +256,14 @@ export default function Home() {
         setSchemaHistory(prev => [newHistoryItem, ...prev].slice(0, 10));
     };
 
-    const handleChange = useCallback(
-        (name?: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | string) => {
-            if (typeof e === 'string') {
-                setFormData((prev: any) => ({ ...prev, [name!]: e }));
-            } else {
-                setFormData((prev: any) => ({ ...prev, [e.target.name]: e.target.value }));
-            }
-        },
-        [setFormData]
-    );
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setFormData((prev: any) => ({ ...prev, [name]: value }));
+    }, [setFormData]);
+
+    const handleSelectChange = useCallback((name: string) => (value: string) => {
+        setFormData((prev: any) => ({ ...prev, [name]: value }));
+    }, [setFormData]);
 
     const generateSchema = useCallback(() => {
         const { name, description, telephone, streetAddress, addressLocality, addressRegion } = formData;
@@ -441,12 +437,12 @@ export default function Home() {
 
     const tabContent = useMemo(() => {
       switch(activeTab) {
-        case 'basic': return <BasicInfoTab formData={formData} handleChange={handleChange} />;
+        case 'basic': return <BasicInfoTab formData={formData} handleChange={handleChange} handleSelectChange={handleSelectChange} />;
         case 'voice': return <VoiceSearchTab formData={formData} handleChange={handleChange} />;
         case 'advanced': return <AdvancedTab formData={formData} handleChange={handleChange} socialProfiles={socialProfiles} setSocialProfiles={setSocialProfiles} />;
         default: return null;
       }
-    }, [activeTab, formData, handleChange, socialProfiles, setSocialProfiles]);
+    }, [activeTab, formData, handleChange, handleSelectChange, socialProfiles, setSocialProfiles]);
 
     if (!isMounted) {
         return null;
@@ -578,6 +574,8 @@ export default function Home() {
         </div>
     );
 }
+
+    
 
     
 
