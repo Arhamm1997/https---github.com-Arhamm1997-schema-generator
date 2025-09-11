@@ -49,7 +49,7 @@ const UrlFetchCard = ({ onSchemaGenerated }: { onSchemaGenerated: (schema: strin
         try {
             const result = await generateSchemaFromUrl({ url });
             const schemaString = `<script type="application/ld+json">\n${JSON.stringify(result.schema, null, 2)}\n</script>`;
-            const name = result.schema.name || url;
+            const name = result.schema.mainEntity?.name || result.schema.name || new URL(url).hostname;
             onSchemaGenerated(schemaString, name);
             toast({ title: 'Schema Generated from URL!', description: 'The schema has been populated with data from the URL.' });
         } catch (error) {
@@ -131,6 +131,11 @@ const BasicInfoTab = ({ formData, handleChange }: any) => (
                 <SelectItem value="Restaurant">Restaurant</SelectItem>
                 <SelectItem value="HVACBusiness">HVAC Business</SelectItem>
                 <SelectItem value="ProfessionalService">Professional Service</SelectItem>
+                <SelectItem value="HomeAndConstructionBusiness">Home & Construction</SelectItem>
+                <SelectItem value="MedicalBusiness">Medical Business</SelectItem>
+                <SelectItem value="LegalService">Legal Service</SelectItem>
+                <SelectItem value="AutomotiveBusiness">Automotive Business</SelectItem>
+                <SelectItem value="Article">Article</SelectItem>
             </SelectContent>
         </Select>
     </FormField>
@@ -557,3 +562,5 @@ export default function Home() {
         </div>
     );
 }
+
+    
