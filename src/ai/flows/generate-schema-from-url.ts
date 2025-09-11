@@ -67,11 +67,11 @@ const generateSchemaFromUrlFlow = ai.defineFlow(
         Your task is to analyze the content of the given URL and generate a comprehensive and accurate JSON-LD schema.
 
         1.  **Fetch Content**: Use the 'fetchPageContent' tool to get the text content of the URL: ${input.url}.
-        2.  **Identify Business Type**: From the content, identify the most appropriate business type for the 'mainEntity'. You MUST choose from this list: [LocalBusiness, Restaurant, HVACBusiness, ProfessionalService, HomeAndConstructionBusiness, MedicalBusiness, LegalService, AutomotiveBusiness, Article]. Default to 'LocalBusiness' if unsure.
+        2.  **Identify Entity Type**: From the content, identify the most appropriate schema.org type for the 'mainEntity'. You MUST choose from this list: [LocalBusiness, Restaurant, HVACBusiness, ProfessionalService, HomeAndConstructionBusiness, MedicalBusiness, LegalService, AutomotiveBusiness, Article]. Default to 'LocalBusiness' if unsure.
         3.  **Extract Information**: Extract all relevant information for the main entity: name, description, address, phone number, email, services offered, opening hours, etc.
         4.  **Create Voice-Optimized Description**: The 'description' field for the main entity should be conversational and concise (20-30 words), suitable for a voice assistant to read aloud.
-        5.  **Construct Schema**: Build a valid JSON-LD schema. The root object should be of '@type': 'WebPage'. The business/article information should be nested inside the 'mainEntity' property.
-        6.  **Add Speakable Property**: To the root 'WebPage' object, add a 'speakable' property with a "SpeakableSpecification" type. For the 'cssSelector', suggest some likely CSS selectors where the main content can be found (e.g., ["main", "article", "[role=main]"]). Do not invent specific, complex selectors that are unlikely to exist.
+        5.  **Construct Schema**: Build a valid JSON-LD schema. The root object MUST be of '@type': 'WebPage'. The business/article information should be nested inside the 'mainEntity' property. This is crucial for validation.
+        6.  **Add Speakable Property**: To the root 'WebPage' object, add a 'speakable' property with a "SpeakableSpecification" type. For the 'cssSelector' field, suggest some likely CSS selectors where the main content can be found (e.g., ["#main-content", ".article-body", "[role=main]"]). Do not invent specific, complex selectors that are unlikely to exist. Base your suggestions on the content you analyzed.
         
         Return only the generated JSON object. Do not include any explanatory text.
       `,
