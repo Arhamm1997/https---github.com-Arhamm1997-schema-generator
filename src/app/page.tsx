@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import useLocalStorage from '@/hooks/use-local-storage';
 import type { HistoryItem } from '@/lib/types';
 import { cleanObject } from '@/lib/utils';
-import { SlidersHorizontal, Code, History, Copy, Trash2, Download, CircleCheck, AlertTriangle, Wand2, Bot, Link, MapPin, Clock, Star } from 'lucide-react';
+import { SlidersHorizontal, Code, History, Copy, Trash2, Download, CircleCheck, AlertTriangle, Wand2, Bot, Link, MapPin, Clock, Star, Image, Type, Heading1 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { generateSchemaFromUrl } from '@/ai/flows/generate-schema-from-url';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -23,9 +23,7 @@ const Header = () => (
     initial={{ y: -100, opacity: 0 }}
     animate={{ y: 0, opacity: 1 }}
     transition={{ duration: 0.5, ease: 'easeOut' }}
-    // ✅ Ab sirf basic styling classes hain
-// ✅ Added mt-8 for top spacing
-className="mt-8 py-8 text-center"
+    className="mt-8 py-8 text-center"
   >
     <div className="max-w-7xl mx-auto px-6">
       <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent mb-3 tracking-tighter flex items-center justify-center gap-4">
@@ -155,6 +153,46 @@ const BasicInfoTab = ({ formData, handleChange, handleSelectChange }: any) => (
             </SelectContent>
         </Select>
     </FormField>
+    
+    {/* Content Fields Section */}
+    <div className="bg-muted/20 rounded-lg p-4 mb-6">
+        <h3 className="text-sm font-semibold text-muted-foreground mb-4 flex items-center gap-2">
+            <Type className="h-4 w-4" />
+            Content Information
+        </h3>
+        <FormField 
+            id="pageTitle" 
+            name="pageTitle" 
+            label="Page Title" 
+            placeholder="Your Page Title" 
+            value={formData.pageTitle} 
+            onChange={handleChange} 
+            icon={Type}
+            tooltip="The main title of your page (used in schema and meta tags)"
+        />
+        <FormField 
+            id="pageH1" 
+            name="pageH1" 
+            label="Main Heading (H1)" 
+            placeholder="Your Main Heading" 
+            value={formData.pageH1} 
+            onChange={handleChange} 
+            icon={Heading1}
+            tooltip="The primary heading visible on your page"
+        />
+        <FormField 
+            id="primaryImageUrl" 
+            name="primaryImageUrl" 
+            label="Primary Image URL" 
+            type="url"
+            placeholder="https://yourbusiness.com/image.jpg" 
+            value={formData.primaryImageUrl} 
+            onChange={handleChange} 
+            icon={Image}
+            tooltip="Main image representing your business (logo, storefront, etc.)"
+        />
+    </div>
+
     <div className="grid md:grid-cols-2 gap-4">
       <FormField id="name" name="name" label="Business Name" placeholder="Your Business Name" value={formData.name} onChange={handleChange} tooltip="Your official business name as registered" />
       <FormField id="url" name="url" label="Website URL" placeholder="https://yourbusiness.com" value={formData.url} onChange={handleChange} tooltip="Your main website URL"/>
@@ -287,6 +325,9 @@ export default function Home() {
         name: '', 
         url: '', 
         description: '', 
+        pageTitle: '',
+        pageH1: '',
+        primaryImageUrl: '',
         telephone: '', 
         email: '', 
         streetAddress: '', 
@@ -347,7 +388,18 @@ export default function Home() {
             "@context": "https://schema.org",
             "@type": "WebPage",
             "url": formData.url,
-            "name": formData.name,
+            "name": formData.pageTitle || formData.name,
+            "headline": formData.pageH1 || formData.pageTitle || formData.name,
+        }
+
+        // Add primary image if provided
+        if (formData.primaryImageUrl) {
+            baseSchema.image = {
+                "@type": "ImageObject",
+                "url": formData.primaryImageUrl,
+                "name": formData.pageTitle || formData.name,
+                "caption": formData.description
+            };
         }
 
         const mainEntity: any = {
@@ -365,6 +417,20 @@ export default function Home() {
                 "addressCountry": formData.addressCountry
             },
         };
+
+        // Add logo/image to business entity
+        if (formData.primaryImageUrl) {
+            mainEntity.logo = {
+                "@type": "ImageObject",
+                "url": formData.primaryImageUrl
+            };
+            mainEntity.image = {
+                "@type": "ImageObject",
+                "url": formData.primaryImageUrl,
+                "name": formData.name,
+                "caption": formData.description
+            };
+        }
         
         // Enhanced FAQ handling
         if (formData.faqQuestions && formData.faqAnswers) {
@@ -525,6 +591,9 @@ export default function Home() {
             name: '', 
             url: '', 
             description: '', 
+            pageTitle: '',
+            pageH1: '',
+            primaryImageUrl: '',
             telephone: '', 
             email: '', 
             streetAddress: '', 
