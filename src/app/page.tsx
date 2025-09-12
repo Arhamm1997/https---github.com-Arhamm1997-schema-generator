@@ -15,6 +15,7 @@ import { SlidersHorizontal, Code, History, Copy, Trash2, Download, CircleCheck, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { generateSchemaFromUrl } from '@/ai/flows/generate-schema-from-url';
 import { Checkbox } from '@/components/ui/checkbox';
+import CelebrationEffect from '@/components/CelebrationEffect';
 
 const MotionCard = motion(Card);
 
@@ -52,7 +53,8 @@ const UrlFetchCard = ({ onSchemaGenerated }: { onSchemaGenerated: (schema: strin
             onSchemaGenerated(schemaString, name);
             toast({ 
                 title: 'Enhanced Schema Generated!', 
-                description: 'Comprehensive schema with FAQs and local SEO elements has been generated from the URL.' 
+                description: 'Comprehensive schema with FAQs and local SEO elements has been generated from the URL.',
+                duration: 6000
             });
         } catch (error) {
             console.error('Error generating schema from URL:', error);
@@ -588,6 +590,8 @@ export default function Home() {
     const [howToSteps, setHowToSteps] = useLocalStorage<string[]>('howToSteps', []);
     const [selectedHistory, setSelectedHistory] = useState<Set<string>>(new Set());
     const [isMounted, setIsMounted] = useState(false);
+    const [isAiGenerated, setIsAiGenerated] = useState(false);
+    const [showCelebration, setShowCelebration] = useState(false);
     
     useEffect(() => {
         setIsMounted(true);
@@ -642,6 +646,9 @@ export default function Home() {
 
     const handleAiSchemaGenerated = (schema: string, name: string) => {
         setGeneratedSchema(schema);
+        setIsAiGenerated(true);
+        setShowCelebration(true);
+        
         const newHistoryItem: HistoryItem = {
             id: Date.now().toString(),
             name: name || 'AI Generated Schema',
@@ -651,13 +658,19 @@ export default function Home() {
         setSchemaHistory(prev => [newHistoryItem, ...prev].slice(0, 10));
     };
 
+    const handleCelebrationComplete = () => {
+        setShowCelebration(false);
+    };
+
     const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData((prev: any) => ({ ...prev, [name]: value }));
+        setIsAiGenerated(false); // Reset AI flag when manual changes are made
     }, [setFormData]);
 
     const handleSelectChange = useCallback((name: string, value: string) => {
         setFormData((prev: any) => ({ ...prev, [name]: value }));
+        setIsAiGenerated(false); // Reset AI flag when manual changes are made
     }, [setFormData]);
 
     const generateSchema = useCallback(() => {
@@ -730,12 +743,24 @@ export default function Home() {
             setGeneratedSchema(fullScript);
 
         } else {
-            // Business schema validation
-            const { name, description, telephone, streetAddress, addressLocality, addressRegion } = formData;
-            if (!name || !description || !telephone || !streetAddress || !addressLocality || !addressRegion) {
-                toast({ variant: 'destructive', title: 'Missing Information', description: 'Please fill in all required business fields.' });
-                setActiveTab('basic');
-                return;
+            // Business schema validation - more lenient for AI-generated content
+            const { name, description, telephone } = formData;
+            
+            // Strict validation for manual entry
+            if (!isAiGenerated) {
+                const { streetAddress, addressLocality, addressRegion } = formData;
+                if (!name || !description || !telephone || !streetAddress || !addressLocality || !addressRegion) {
+                    toast({ variant: 'destructive', title: 'Missing Information', description: 'Please fill in all required business fields.' });
+                    setActiveTab('basic');
+                    return;
+                }
+            } else {
+                // More lenient validation for AI-generated content
+                if (!name || !description) {
+                    toast({ variant: 'destructive', title: 'Missing Information', description: 'Please ensure business name and description are provided.' });
+                    setActiveTab('basic');
+                    return;
+                }
             }
 
             const baseSchema = {
@@ -760,14 +785,14 @@ export default function Home() {
                 "name": formData.name,
                 "description": formData.description,
                 "url": formData.websiteUrl,
-                "telephone": formData.telephone,
+                "telephone": formData.telephone || "Contact us for phone number",
                 "address": {
                     "@type": "PostalAddress",
-                    "streetAddress": formData.streetAddress,
-                    "addressLocality": formData.addressLocality,
-                    "addressRegion": formData.addressRegion,
+                    "streetAddress": formData.streetAddress || "Address available upon request",
+                    "addressLocality": formData.addressLocality || "Local Area",
+                    "addressRegion": formData.addressRegion || "State",
                     "postalCode": formData.postalCode,
-                    "addressCountry": formData.addressCountry
+                    "addressCountry": formData.addressCountry || "US"
                 },
             };
 
@@ -795,7 +820,7 @@ export default function Home() {
                         "name": question.trim(),
                         "acceptedAnswer": {
                             "@type": "Answer",
-                            "text": answers[index]?.trim() || `Contact us at ${formData.telephone} for more information.`
+                            "text": answers[index]?.trim() || `Contact us at ${formData.telephone || 'our phone number'} for more information.`
                         }
                     }));
                     
@@ -897,7 +922,7 @@ export default function Home() {
         setSchemaHistory(prev => [newHistoryItem, ...prev].slice(0, 10));
 
         toast({ title: 'Enhanced Schema Generated!', description: 'Your comprehensive schema is ready.' });
-    }, [formData, socialProfiles, images, howToSteps, toast, setSchemaHistory, generatedSchema]);
+    }, [formData, socialProfiles, images, howToSteps, toast, setSchemaHistory, generatedSchema, isAiGenerated]);
 
     const copySchema = () => {
         if (!generatedSchema) {
@@ -981,6 +1006,7 @@ export default function Home() {
         setImages([]);
         setHowToSteps([]);
         setGeneratedSchema('');
+        setIsAiGenerated(false);
         toast({ title: 'Fields Reset', description: 'All form fields have been cleared.' });
     };
 
@@ -1045,6 +1071,10 @@ export default function Home() {
     return (
         <div className="min-h-screen w-full">
             <Header />
+            <CelebrationEffect 
+                isActive={showCelebration} 
+                onComplete={handleCelebrationComplete}
+            />
             <main className="max-w-screen-xl mx-auto p-4 md:p-6 lg:p-8">
                 <div className="grid lg:grid-cols-2 gap-8 items-start">
                     <div>
