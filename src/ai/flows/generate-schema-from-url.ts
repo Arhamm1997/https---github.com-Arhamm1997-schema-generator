@@ -277,7 +277,7 @@ const fetchPageContentTool = ai.defineTool(
                 }
             });
 
-            // Enhanced address extraction
+            // Enhanced address extraction with multiple attempts
             const addressSelectors = [
                 '.address', 
                 '.contact-address', 
@@ -286,14 +286,33 @@ const fetchPageContentTool = ai.defineTool(
                 '.street-address',
                 '.postal-address',
                 '.contact-info .address',
-                '.footer .address'
+                '.footer .address',
+                '.location-info',
+                '.office-location'
             ];
             
+            // Try multiple methods to extract address
             for (const selector of addressSelectors) {
                 const addressText = $(selector).text().trim();
                 if (addressText && addressText.length > 10 && addressText.length < 200) {
                     contactInfo.address = addressText;
                     break;
+                }
+            }
+
+            // If no address found in specific selectors, try to extract from content using patterns
+            if (!contactInfo.address) {
+                const addressPatterns = [
+                    /\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Place|Pl)\s*,?\s*[A-Za-z\s]+,?\s*[A-Z]{2}\s*\d{5}/gi,
+                    /\d+\s+[A-Za-z\s]+,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s*\d{5}/gi
+                ];
+
+                for (const pattern of addressPatterns) {
+                    const matches = content.match(pattern);
+                    if (matches && matches.length > 0) {
+                        contactInfo.address = matches[0].trim();
+                        break;
+                    }
                 }
             }
 
@@ -457,46 +476,64 @@ const generateSchemaFromUrlFlow = ai.defineFlow(
            - Include breadcrumbs if applicable
            - Add ImageObject schema for important images
 
-        3. **Essential Local SEO Elements**:
-           - Complete address with PostalAddress schema
-           - Contact information (telephone, email)
+        3. **Handle Missing Address Gracefully**:
+           - If complete address information is not available, create a minimal address with available data
+           - Use generic values like "Contact us for address details" if no address is found
+           - Always include addressCountry as "US" if not specified
+           - Ensure PostalAddress schema has at least addressLocality and addressCountry
+
+        4. **Essential Local SEO Elements**:
+           - Complete address with PostalAddress schema (use defaults if missing)
+           - Contact information (telephone, email) - use fallbacks if not found
            - Business hours if available (openingHoursSpecification)
-           - Service area (areaServed)
+           - Service area (areaServed) - default to "Local Area" if not specified
            - Services offered (makesOffer with proper Offer/Service structure)
            - Social media profiles (sameAs)
            - Reviews and ratings (aggregateRating)
            - Geographic coordinates if extractable (geo with GeoCoordinates)
            - Images with proper ImageObject schema
 
-        4. **FAQ Schema Integration**:
+        5. **FAQ Schema Integration**:
            - If FAQs are found, create proper Question/Answer schema
            - Each question should have @type: "Question"
            - Each answer should have @type: "Answer"
            - Include FAQs in mainEntity or as separate FAQPage
 
-        5. **Image Schema Integration**:
+        6. **Image Schema Integration**:
            - Add relevant images as ImageObject schema
            - Include image URLs, alt text, and descriptions
            - Focus on business-relevant images (logos, products, facilities)
 
-        6. **Business Type Detection**: Choose the most appropriate @type from:
+        7. **Business Type Detection**: Choose the most appropriate @type from:
            [LocalBusiness, Restaurant, ProfessionalService, LegalService, MedicalBusiness, 
            HomeAndConstructionBusiness, AutomotiveBusiness, Organization]
 
-        7. **Voice Search Optimization**:
+        8. **Voice Search Optimization**:
            - Conversational descriptions (20-30 words)
            - Include natural language patterns
            - Add speakable content selectors
            - Optimize for "near me" searches with location data
 
-        8. **Schema Quality**:
+        9. **Schema Quality & Error Prevention**:
            - Remove any null, undefined, or empty values
-           - Ensure all required properties are present
+           - Ensure all required properties are present with defaults if needed
            - Use proper schema.org types and properties
            - Include relevant structured data for rich snippets
            - Validate that all URLs are absolute and properly formatted
+           - NEVER leave required address fields completely empty - use "Not specified" or similar defaults
+           - Ensure telephone field has a value, even if it's "Contact us for phone number"
 
-        Return a complete, valid JSON-LD schema object that maximizes local SEO potential and voice search visibility.
+        10. **Default Values for Missing Data**:
+            - If no business name found, use the page title or domain name
+            - If no description found, create one from page content
+            - If no phone found, use "Contact us for phone number"
+            - If no address found, use: 
+              - streetAddress: "Address available upon request"
+              - addressLocality: "Local Area" 
+              - addressRegion: "State"
+              - addressCountry: "US"
+
+        Return a complete, valid JSON-LD schema object that maximizes local SEO potential and voice search visibility while handling missing data gracefully.
       `,
     });
     
