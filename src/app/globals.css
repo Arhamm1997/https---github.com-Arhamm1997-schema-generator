@@ -78,7 +78,7 @@
     animation: float 6s ease-in-out infinite;
 }
 
-/* Enhanced confetti and sparkle animations */
+/* Simple working animations for confetti */
 @keyframes fall {
   0% {
     transform: translateY(-100vh) rotate(0deg);
@@ -90,61 +90,7 @@
   }
 }
 
-@keyframes sparkle-burst {
-  0% { 
-    opacity: 0; 
-    transform: scale(0) rotate(0deg);
-    filter: brightness(1) hue-rotate(0deg);
-  }
-  25% { 
-    opacity: 1; 
-    transform: scale(1.5) rotate(90deg);
-    filter: brightness(1.5) hue-rotate(90deg);
-  }
-  50% { 
-    opacity: 1; 
-    transform: scale(2) rotate(180deg);
-    filter: brightness(2) hue-rotate(180deg);
-  }
-  75% { 
-    opacity: 0.8; 
-    transform: scale(1.8) rotate(270deg);
-    filter: brightness(1.8) hue-rotate(270deg);
-  }
-  100% { 
-    opacity: 0; 
-    transform: scale(0) rotate(360deg);
-    filter: brightness(1) hue-rotate(360deg);
-  }
-}
-
-@keyframes party-popper-burst {
-  0% {
-    transform: scale(0) translateY(0) translateX(0);
-    opacity: 1;
-  }
-  10% {
-    transform: scale(1.2) translateY(-20px) translateX(0);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(0.1) translateY(100vh) translateX(var(--random-x, 0));
-    opacity: 0;
-  }
-}
-
-@keyframes sparkle {
-  0%, 100% { 
-    opacity: 0; 
-    transform: scale(0) rotate(0deg); 
-  }
-  50% { 
-    opacity: 1; 
-    transform: scale(1.2) rotate(180deg); 
-  }
-}
-
-@keyframes confetti-fall {
+@keyframes fall-down {
   0% {
     transform: translateY(-100vh) rotate(0deg);
     opacity: 1;
@@ -155,43 +101,15 @@
   }
 }
 
-@keyframes firework-burst {
-  0% {
-    opacity: 0;
-    transform: scale(0);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(2);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(3);
-  }
-}
-
 .animate-fall {
   animation: fall 5s linear infinite;
 }
 
-.animate-sparkle-burst {
-  animation: sparkle-burst 2s ease-out;
-}
-
-.animate-party-popper-burst {
-  animation: party-popper-burst 4s ease-out forwards;
-}
-
-.animate-sparkle {
-  animation: sparkle 2s ease-in-out infinite;
-}
-
-.animate-confetti-fall {
-  animation: confetti-fall 3s ease-out forwards;
-}
-
-.animate-firework-burst {
-  animation: firework-burst 1.5s ease-out forwards;
+.falling-confetti {
+  position: fixed;
+  font-size: 2rem;
+  animation: fall-down 4s linear infinite;
+  z-index: 9990;
 }
 
 /* Welcome celebration effects */
