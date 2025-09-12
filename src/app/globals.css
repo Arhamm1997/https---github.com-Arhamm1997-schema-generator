@@ -79,37 +79,14 @@
 }
 
 /* Simple working animations for confetti */
-@keyframes fall {
-  0% {
-    transform: translateY(-100vh) rotate(0deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100vh) rotate(360deg);
-    opacity: 0.3;
-  }
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
 }
 
-@keyframes fall-down {
-  0% {
-    transform: translateY(-100vh) rotate(0deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100vh) rotate(360deg);
-    opacity: 0;
-  }
-}
-
-.animate-fall {
-  animation: fall 5s linear infinite;
-}
-
-.falling-confetti {
-  position: fixed;
-  font-size: 2rem;
-  animation: fall-down 4s linear infinite;
-  z-index: 9990;
+.animate-float {
+    animation: float 6s ease-in-out infinite;
 }
 
 /* Welcome celebration effects */
