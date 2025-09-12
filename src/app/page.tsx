@@ -1141,21 +1141,10 @@ export default function Home() {
                                 </div>
                             </CardContent>
                         </MotionCard>
-                        <MotionCard 
-                          className="bg-card/50 border-border shadow-2xl backdrop-blur-xl"
-                          initial={{ opacity: 0, y: 50, scale: 0.9 }}
-                          animate={{ 
-                              opacity: 1, 
-                              y: 0, 
-                              scale: 1,
-                              rotate: [0, -1, 1, 0] // Gentle shake effect
-                          }}
-                          transition={{ 
-                              duration: 0.5, 
-                              delay: 0.4,
-                              rotate: { duration: 0.5, delay: 3 }
-                          }}
-                        >
+                        
+
+
+
                              <CardHeader>
                                 <CardTitle className="flex items-center gap-3 text-2xl"><History className="text-primary"/>Schema History</CardTitle>
                             </CardHeader>
