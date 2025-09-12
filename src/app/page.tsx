@@ -11,11 +11,10 @@ import { useToast } from '@/hooks/use-toast';
 import useLocalStorage from '@/hooks/use-local-storage';
 import type { HistoryItem } from '@/lib/types';
 import { cleanObject } from '@/lib/utils';
-import { SlidersHorizontal, Code, History, Copy, Trash2, Download, CircleCheck, AlertTriangle, Wand2, Bot, Link } from 'lucide-react';
+import { SlidersHorizontal, Code, History, Copy, Trash2, Download, CircleCheck, AlertTriangle, Wand2, Bot, Link, MapPin, Clock, Star } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { generateSchemaFromUrl } from '@/ai/flows/generate-schema-from-url';
 import { Checkbox } from '@/components/ui/checkbox';
-
 
 const MotionCard = motion(Card);
 
@@ -24,13 +23,15 @@ const Header = () => (
     initial={{ y: -100, opacity: 0 }}
     animate={{ y: 0, opacity: 1 }}
     transition={{ duration: 0.5, ease: 'easeOut' }}
-    className="py-8 text-center sticky top-0 z-50"
+    // ✅ Ab sirf basic styling classes hain
+// ✅ Added mt-8 for top spacing
+className="mt-8 py-8 text-center"
   >
     <div className="max-w-7xl mx-auto px-6">
       <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent mb-3 tracking-tighter flex items-center justify-center gap-4">
         <Wand2 size={40} className="text-primary animate-float" /> Voice Schema Generator
       </h1>
-      <p className="text-lg text-muted-foreground font-medium">AI-powered schema markup for superior voice search visibility.</p>
+      <p className="text-lg text-muted-foreground font-medium">AI-powered schema markup for superior voice search visibility and local SEO.</p>
     </div>
   </motion.header>
 );
@@ -51,10 +52,17 @@ const UrlFetchCard = ({ onSchemaGenerated }: { onSchemaGenerated: (schema: strin
             const schemaString = `<script type="application/ld+json">\n${JSON.stringify(result.schema, null, 2)}\n</script>`;
             const name = result.schema.mainEntity?.name || result.schema.name || new URL(url).hostname;
             onSchemaGenerated(schemaString, name);
-            toast({ title: 'Schema Generated from URL!', description: 'The schema has been populated with data from the URL.' });
+            toast({ 
+                title: 'Enhanced Schema Generated!', 
+                description: 'Comprehensive schema with FAQs and local SEO elements has been generated from the URL.' 
+            });
         } catch (error) {
             console.error('Error generating schema from URL:', error);
-            toast({ variant: 'destructive', title: 'Generation Failed', description: 'Could not generate schema from the provided URL.' });
+            toast({ 
+                variant: 'destructive', 
+                title: 'Generation Failed', 
+                description: 'Could not generate schema from the provided URL. Please check the URL and try again.' 
+            });
         } finally {
             setIsLoading(false);
         }
@@ -68,10 +76,15 @@ const UrlFetchCard = ({ onSchemaGenerated }: { onSchemaGenerated: (schema: strin
             transition={{ duration: 0.5, delay: 0.1 }}
         >
             <CardHeader>
-                <CardTitle className="flex items-center gap-3 text-2xl"><Link className="text-accent" /> Fetch from URL</CardTitle>
+                <CardTitle className="flex items-center gap-3 text-2xl">
+                    <Link className="text-accent" /> 
+                    AI-Powered Schema Extractor
+                </CardTitle>
             </CardHeader>
             <CardContent>
-                <p className="text-muted-foreground mb-4 text-sm">Enter a URL to have AI automatically generate a base schema for you.</p>
+                <p className="text-muted-foreground mb-4 text-sm">
+                    Enter a URL to automatically extract and generate comprehensive schema markup including FAQs, business details, and local SEO elements.
+                </p>
                 <div className="flex gap-2">
                     <Input
                         id="url-fetch"
@@ -82,8 +95,12 @@ const UrlFetchCard = ({ onSchemaGenerated }: { onSchemaGenerated: (schema: strin
                         className="bg-background border-border focus:ring-ring focus:ring-2"
                         disabled={isLoading}
                     />
-                    <Button onClick={handleGenerate} disabled={isLoading}>
-                        {isLoading ? <motion.div className="w-4 h-4 border-2 border-background/50 border-t-background rounded-full animate-spin" /> : <Wand2 />}
+                    <Button onClick={handleGenerate} disabled={isLoading} className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 px-6 py-2.5 rounded-xl font-semibold text-base shadow-lg">
+                        {isLoading ? (
+                            <motion.div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin mr-2" />
+                        ) : (
+                            <Wand2 className="mr-2 h-4 w-4" />
+                        )}
                         {isLoading ? 'Generating...' : 'Generate with AI'}
                     </Button>
                 </div>
@@ -91,7 +108,6 @@ const UrlFetchCard = ({ onSchemaGenerated }: { onSchemaGenerated: (schema: strin
         </MotionCard>
     );
 };
-
 
 const FormField = ({ id, label, placeholder, type = 'text', rows, tooltip, children, value, onChange, name, icon: Icon, ...props }: any) => (
     <div className="flex flex-col gap-2 mb-4">
@@ -123,7 +139,7 @@ const FormField = ({ id, label, placeholder, type = 'text', rows, tooltip, child
 
 const BasicInfoTab = ({ formData, handleChange, handleSelectChange }: any) => (
   <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
-    <FormField id="businessType" label="Business Type" type="select">
+    <FormField id="businessType" label="Business Type" type="select" tooltip="Choose the most specific business type for better SEO">
         <Select name="businessType" onValueChange={(value) => handleSelectChange('businessType', value)} value={formData.businessType}>
             <SelectTrigger className="bg-background border-border focus:ring-ring focus:ring-2"><SelectValue placeholder="Select Business Type" /></SelectTrigger>
             <SelectContent>
@@ -140,15 +156,15 @@ const BasicInfoTab = ({ formData, handleChange, handleSelectChange }: any) => (
         </Select>
     </FormField>
     <div className="grid md:grid-cols-2 gap-4">
-      <FormField id="name" name="name" label="Business Name" placeholder="Your Business Name" value={formData.name} onChange={handleChange} />
-      <FormField id="url" name="url" label="Website URL" placeholder="https://yourbusiness.com" value={formData.url} onChange={handleChange}/>
+      <FormField id="name" name="name" label="Business Name" placeholder="Your Business Name" value={formData.name} onChange={handleChange} tooltip="Your official business name as registered" />
+      <FormField id="url" name="url" label="Website URL" placeholder="https://yourbusiness.com" value={formData.url} onChange={handleChange} tooltip="Your main website URL"/>
     </div>
-    <FormField id="description" name="description" label="Business Description" type="textarea" rows={3} placeholder="Describe your business..." tooltip="Keep it conversational for voice search" value={formData.description} onChange={handleChange}/>
+    <FormField id="description" name="description" label="Business Description" type="textarea" rows={3} placeholder="Describe your business in a conversational tone..." tooltip="Keep it conversational and natural for voice search (20-30 words ideal)" value={formData.description} onChange={handleChange}/>
     <div className="grid md:grid-cols-2 gap-4">
-      <FormField id="telephone" name="telephone" label="Phone Number" placeholder="+1-555-123-4567" value={formData.telephone} onChange={handleChange}/>
-      <FormField id="email" name="email" label="Email Address" placeholder="info@yourbusiness.com" value={formData.email} onChange={handleChange}/>
+      <FormField id="telephone" name="telephone" label="Phone Number" placeholder="+1-555-123-4567" value={formData.telephone} onChange={handleChange} tooltip="Primary business phone number"/>
+      <FormField id="email" name="email" label="Email Address" placeholder="info@yourbusiness.com" value={formData.email} onChange={handleChange} tooltip="Main business email address"/>
     </div>
-    <FormField id="streetAddress" name="streetAddress" label="Street Address" placeholder="123 Main Street" value={formData.streetAddress} onChange={handleChange}/>
+    <FormField id="streetAddress" name="streetAddress" label="Street Address" placeholder="123 Main Street" value={formData.streetAddress} onChange={handleChange} icon={MapPin}/>
      <div className="grid md:grid-cols-2 gap-4">
       <FormField id="addressLocality" name="addressLocality" label="City" placeholder="Your City" value={formData.addressLocality} onChange={handleChange}/>
       <FormField id="addressRegion" name="addressRegion" label="State/Region" placeholder="State" value={formData.addressRegion} onChange={handleChange}/>
@@ -160,17 +176,42 @@ const BasicInfoTab = ({ formData, handleChange, handleSelectChange }: any) => (
   </motion.div>
 );
 
+const LocalSeoTab = ({ formData, handleChange }: any) => (
+  <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
+    <FormField 
+      id="businessHours" 
+      name="businessHours" 
+      label="Business Hours" 
+      type="textarea" 
+      rows={3} 
+      placeholder="Monday-Friday: 9AM-5PM&#10;Saturday: 10AM-3PM&#10;Sunday: Closed" 
+      value={formData.businessHours} 
+      onChange={handleChange}
+      icon={Clock}
+      tooltip="Format each day on a new line for best results"
+    />
+    <div className="grid md:grid-cols-2 gap-4">
+        <FormField id="latitude" name="latitude" label="Latitude" type="number" step="any" placeholder="40.7128" value={formData.latitude} onChange={handleChange} tooltip="GPS coordinates help with local search"/>
+        <FormField id="longitude" name="longitude" label="Longitude" type="number" step="any" placeholder="-74.0060" value={formData.longitude} onChange={handleChange}/>
+    </div>
+    <FormField id="googleMap" name="googleMap" label="Google Maps URL" type="url" placeholder="https://maps.google.com/..." value={formData.googleMap} onChange={handleChange} icon={MapPin}/>
+    <FormField id="serviceAreas" name="serviceAreas" label="Service Areas" placeholder="Downtown, Midtown, Suburbs, City Name" value={formData.serviceAreas} onChange={handleChange} tooltip="Areas you serve - important for 'near me' searches"/>
+    <div className="grid md:grid-cols-2 gap-4">
+        <FormField id="ratingValue" name="ratingValue" label="Average Rating (1-5)" type="number" placeholder="4.8" min="1" max="5" step="0.1" value={formData.ratingValue} onChange={handleChange} icon={Star}/>
+        <FormField id="reviewCount" name="reviewCount" label="Total Reviews" type="number" placeholder="127" value={formData.reviewCount} onChange={handleChange}/>
+    </div>
+    <FormField id="priceRange" name="priceRange" label="Price Range" placeholder="$$" value={formData.priceRange} onChange={handleChange} tooltip="Use $ to $$$$ format"/>
+    <FormField id="servicesOffered" name="servicesOffered" label="Services Offered" type="textarea" rows={4} placeholder="Service 1&#10;Service 2&#10;Service 3" value={formData.servicesOffered} onChange={handleChange} tooltip="List each service on a new line"/>
+  </motion.div>
+);
+
 const VoiceSearchTab = ({ formData, handleChange }: any) => (
   <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
-    <FormField id="voiceSummary" name="voiceSummary" label="Voice Search Summary" type="textarea" rows={2} placeholder="Brief summary for voice assistants (20-30 words)..." tooltip="20-30 words for voice assistants" value={formData.voiceSummary} onChange={handleChange}/>
-    <FormField id="speakableContent" name="speakableContent" label="Speakable Content CSS Selectors" type="textarea" rows={3} placeholder=".business-summary, .contact-info, .hours-info" value={formData.speakableContent} onChange={handleChange}/>
-    <FormField id="voiceKeywords" name="voiceKeywords" label="Voice Search Keywords" placeholder="near me, best, top rated, how to, what is" value={formData.voiceKeywords} onChange={handleChange}/>
-    <FormField id="faqQuestions" name="faqQuestions" label="Common Voice Questions" type="textarea" rows={4} placeholder={"What are your hours?\nWhere are you located?\nDo you offer free estimates?"} value={formData.faqQuestions} onChange={handleChange}/>
-    <FormField id="serviceAreas" name="serviceAreas" label="Service Areas (for 'near me' searches)" placeholder="Downtown, Midtown, Suburbs, City Name" value={formData.serviceAreas} onChange={handleChange}/>
-     <div className="grid md:grid-cols-2 gap-4">
-        <FormField id="ratingValue" name="ratingValue" label="Rating (1-5)" type="number" placeholder="4.8" min="1" max="5" step="0.1" value={formData.ratingValue} onChange={handleChange}/>
-        <FormField id="reviewCount" name="reviewCount" label="Review Count" type="number" placeholder="127" value={formData.reviewCount} onChange={handleChange}/>
-    </div>
+    <FormField id="voiceSummary" name="voiceSummary" label="Voice Search Summary" type="textarea" rows={2} placeholder="Brief summary perfect for voice assistants (20-30 words)..." tooltip="This will be used for voice search results" value={formData.voiceSummary} onChange={handleChange}/>
+    <FormField id="speakableContent" name="speakableContent" label="Speakable Content CSS Selectors" type="textarea" rows={3} placeholder=".business-summary, .contact-info, .hours-info, .voice-answer" value={formData.speakableContent} onChange={handleChange} tooltip="CSS selectors for content that should be read aloud"/>
+    <FormField id="voiceKeywords" name="voiceKeywords" label="Voice Search Keywords" placeholder="near me, best, top rated, how to, what is, local" value={formData.voiceKeywords} onChange={handleChange} tooltip="Keywords people use in voice searches"/>
+    <FormField id="faqQuestions" name="faqQuestions" label="Frequently Asked Questions" type="textarea" rows={6} placeholder="What are your hours?&#10;Where are you located?&#10;Do you offer free estimates?&#10;How can I contact you?&#10;What services do you provide?&#10;Do you accept insurance?" value={formData.faqQuestions} onChange={handleChange} tooltip="Questions customers commonly ask - one per line"/>
+    <FormField id="faqAnswers" name="faqAnswers" label="FAQ Answers" type="textarea" rows={6} placeholder="We're open Monday-Friday 9AM-5PM&#10;We're located at [Your Address]&#10;Yes, we provide free estimates&#10;Call us at [Phone] or email [Email]&#10;We offer [list services]&#10;Yes, we accept most major insurance plans" value={formData.faqAnswers} onChange={handleChange} tooltip="Answers to FAQs - match the order of questions above"/>
   </motion.div>
 );
 
@@ -189,19 +230,16 @@ const AdvancedTab = ({ formData, handleChange, socialProfiles, setSocialProfiles
 
     return (
     <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
-        <div className="grid md:grid-cols-2 gap-4">
-            <FormField id="latitude" name="latitude" label="Latitude" type="number" step="any" placeholder="40.7128" value={formData.latitude} onChange={handleChange}/>
-            <FormField id="longitude" name="longitude" label="Longitude" type="number" step="any" placeholder="-74.0060" value={formData.longitude} onChange={handleChange}/>
-        </div>
-        <FormField id="googleMap" name="googleMap" label="Google Maps URL" type="url" placeholder="https://maps.google.com/..." value={formData.googleMap} onChange={handleChange}/>
-        <FormField id="servicesOffered" name="servicesOffered" label="Services Offered" type="textarea" rows={4} placeholder={"Service 1\nService 2\nService 3"} value={formData.servicesOffered} onChange={handleChange}/>
+        <FormField id="alternativeNames" name="alternativeNames" label="Alternative Business Names" placeholder="Also known as, DBA names, etc." value={formData.alternativeNames} onChange={handleChange} tooltip="Other names your business is known by"/>
+        <FormField id="foundingDate" name="foundingDate" label="Founding Date" type="date" value={formData.foundingDate} onChange={handleChange} tooltip="When your business was established"/>
+        <FormField id="paymentMethods" name="paymentMethods" label="Payment Methods Accepted" placeholder="Cash, Credit Card, PayPal, etc." value={formData.paymentMethods} onChange={handleChange}/>
         
         <div className="form-group">
             <label htmlFor="socialSelect" className="flex items-center text-sm font-medium text-muted-foreground">
                 <i className="fas fa-share-alt mr-2 text-primary"></i>Social Media Profiles
             </label>
             <div className="flex gap-2">
-                <Input placeholder="Enter full profile URL (e.g., https://twitter.com/yourbiz)" value={socialUrl} onChange={(e) => setSocialUrl(e.target.value)} className="bg-background border-border" />
+                <Input placeholder="Enter full profile URL (e.g., https://facebook.com/yourbiz)" value={socialUrl} onChange={(e) => setSocialUrl(e.target.value)} className="bg-background border-border" />
                 <Button onClick={addSocialProfile}>Add</Button>
             </div>
             <div className="flex flex-wrap gap-2 mt-3">
@@ -217,13 +255,16 @@ const AdvancedTab = ({ formData, handleChange, socialProfiles, setSocialProfiles
                 ))}
             </div>
         </div>
+        
+        <FormField id="awards" name="awards" label="Awards & Certifications" type="textarea" rows={3} placeholder="Best Service Award 2023&#10;BBB Accredited Business&#10;Industry Certification" value={formData.awards} onChange={handleChange} tooltip="Awards, certifications, and recognitions"/>
+        <FormField id="specialOffers" name="specialOffers" label="Special Offers" type="textarea" rows={2} placeholder="Free consultation, 10% off first service, etc." value={formData.specialOffers} onChange={handleChange}/>
     </motion.div>
     )
 };
 
-
 const TABS = {
     'basic': 'Basic Info',
+    'local': 'Local SEO',
     'voice': 'Voice Search',
     'advanced': 'Advanced',
 };
@@ -242,7 +283,36 @@ export default function Home() {
     }, []);
 
     const [formData, setFormData] = useLocalStorage('formData', {
-        businessType: 'LocalBusiness', name: '', url: '', description: '', telephone: '', email: '', streetAddress: '', addressLocality: '', addressRegion: '', postalCode: '', addressCountry: 'US', voiceSummary: '', speakableContent: '.business-summary, .contact-info, .hours-info, .voice-answer', voiceKeywords: 'near me, best, top rated, local, professional', faqQuestions: 'What are your hours?\nWhere are you located?\nDo you offer free estimates?\nHow can I contact you?', serviceAreas: '', ratingValue: '', reviewCount: '', latitude: '', longitude: '', googleMap: '', servicesOffered: '',
+        businessType: 'LocalBusiness', 
+        name: '', 
+        url: '', 
+        description: '', 
+        telephone: '', 
+        email: '', 
+        streetAddress: '', 
+        addressLocality: '', 
+        addressRegion: '', 
+        postalCode: '', 
+        addressCountry: 'US', 
+        voiceSummary: '', 
+        speakableContent: '.business-summary, .contact-info, .hours-info, .voice-answer', 
+        voiceKeywords: 'near me, best, top rated, local, professional', 
+        faqQuestions: 'What are your hours?\nWhere are you located?\nDo you offer free estimates?\nHow can I contact you?\nWhat services do you provide?', 
+        faqAnswers: 'We are open Monday-Friday 9AM-5PM\nWe are located at [Your Address]\nYes, we provide free estimates\nCall us at [Phone] or email [Email]\nWe offer [list your services]',
+        serviceAreas: '', 
+        ratingValue: '', 
+        reviewCount: '', 
+        latitude: '', 
+        longitude: '', 
+        googleMap: '', 
+        servicesOffered: '',
+        businessHours: '',
+        priceRange: '',
+        alternativeNames: '',
+        foundingDate: '',
+        paymentMethods: '',
+        awards: '',
+        specialOffers: ''
     });
 
     const handleAiSchemaGenerated = (schema: string, name: string) => {
@@ -296,28 +366,89 @@ export default function Home() {
             },
         };
         
-        if (formData.faqQuestions) {
-           const faqEntity = formData.faqQuestions.split('\n').filter(q => q.trim()).map(q => ({
-                "@type": "Question",
-                "name": q.trim(),
-                "acceptedAnswer": { "@type": "Answer", "text": `Contact us at ${formData.telephone} for more information.` }
-            }));
-           if (faqEntity.length > 0) {
-                mainEntity.mainEntityOfPage = {
-                    "@type": "WebPage",
-                    "mainEntity": faqEntity
+        // Enhanced FAQ handling
+        if (formData.faqQuestions && formData.faqAnswers) {
+            const questions = formData.faqQuestions.split('\n').filter(q => q.trim());
+            const answers = formData.faqAnswers.split('\n').filter(a => a.trim());
+            
+            if (questions.length > 0) {
+                const faqEntity = questions.map((question, index) => ({
+                    "@type": "Question",
+                    "name": question.trim(),
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": answers[index]?.trim() || `Contact us at ${formData.telephone} for more information.`
+                    }
+                }));
+                
+                if (faqEntity.length > 0) {
+                    mainEntity.mainEntityOfPage = {
+                        "@type": "FAQPage",
+                        "mainEntity": faqEntity
+                    }
                 }
-           }
+            }
+        }
+
+        // Enhanced business hours
+        let openingHours = undefined;
+        if (formData.businessHours) {
+            const hoursLines = formData.businessHours.split('\n').filter(line => line.trim());
+            openingHours = hoursLines.map(line => {
+                const parts = line.split(':');
+                if (parts.length >= 2) {
+                    return {
+                        "@type": "OpeningHoursSpecification",
+                        "dayOfWeek": parts[0].trim(),
+                        "opens": parts[1].trim().split('-')[0]?.trim(),
+                        "closes": parts[1].trim().split('-')[1]?.trim()
+                    };
+                }
+                return null;
+            }).filter(Boolean);
         }
 
         const cleanedMainEntity = cleanObject({
           ...mainEntity,
           email: formData.email,
-          geo: (formData.latitude && formData.longitude) ? { "@type": "GeoCoordinates", latitude: parseFloat(formData.latitude), longitude: parseFloat(formData.longitude) } : undefined,
+          priceRange: formData.priceRange,
+          paymentAccepted: formData.paymentMethods ? formData.paymentMethods.split(',').map(p => p.trim()) : undefined,
+          foundingDate: formData.foundingDate,
+          alternateName: formData.alternativeNames ? formData.alternativeNames.split(',').map(n => n.trim()) : undefined,
+          openingHoursSpecification: openingHours,
+          geo: (formData.latitude && formData.longitude) ? { 
+            "@type": "GeoCoordinates", 
+            latitude: parseFloat(formData.latitude), 
+            longitude: parseFloat(formData.longitude) 
+          } : undefined,
           hasMap: formData.googleMap,
-          aggregateRating: (formData.ratingValue && formData.reviewCount) ? { "@type": "AggregateRating", ratingValue: parseFloat(formData.ratingValue), reviewCount: parseInt(formData.reviewCount) } : undefined,
-          areaServed: formData.serviceAreas ? formData.serviceAreas.split(',').map(area => ({ "@type": "Place", "name": area.trim() })) : undefined,
-          makesOffer: formData.servicesOffered ? formData.servicesOffered.split('\n').map(s => ({ "@type": "Offer", "itemOffered": { "@type": "Service", "name": s.trim() }})) : undefined,
+          aggregateRating: (formData.ratingValue && formData.reviewCount) ? { 
+            "@type": "AggregateRating", 
+            ratingValue: parseFloat(formData.ratingValue), 
+            reviewCount: parseInt(formData.reviewCount),
+            bestRating: "5",
+            worstRating: "1"
+          } : undefined,
+          areaServed: formData.serviceAreas ? formData.serviceAreas.split(',').map(area => ({ 
+            "@type": "Place", 
+            "name": area.trim() 
+          })) : undefined,
+          makesOffer: formData.servicesOffered ? formData.servicesOffered.split('\n').filter(s => s.trim()).map(s => ({ 
+            "@type": "Offer", 
+            "itemOffered": { 
+              "@type": "Service", 
+              "name": s.trim() 
+            }
+          })) : undefined,
+          hasOfferCatalog: formData.specialOffers ? {
+            "@type": "OfferCatalog",
+            "name": "Special Offers",
+            "itemListElement": formData.specialOffers.split('\n').filter(o => o.trim()).map(offer => ({
+              "@type": "Offer",
+              "name": offer.trim()
+            }))
+          } : undefined,
+          award: formData.awards ? formData.awards.split('\n').filter(a => a.trim()) : undefined,
           sameAs: socialProfiles.length > 0 ? socialProfiles : undefined,
         });
 
@@ -331,13 +462,14 @@ export default function Home() {
             mainEntity: cleanedMainEntity,
             speakable: speakableContent,
             keywords: formData.voiceKeywords,
+            description: formData.voiceSummary || formData.description,
         }
 
         const cleanedFinalSchema = cleanObject(finalSchema);
         
         let fullScript = `<script type="application/ld+json">\n${JSON.stringify(cleanedFinalSchema, null, 2)}\n</script>`;
         
-        const metaTags = `&lt;!-- Voice Search Optimization Meta Tags --&gt;\n&lt;meta name="voice-summary" content="${formData.voiceSummary || formData.description}"&gt;\n&lt;meta name="description" content="${formData.description}"&gt;`;
+        const metaTags = `&lt;!-- Voice Search & Local SEO Meta Tags --&gt;\n&lt;meta name="voice-summary" content="${formData.voiceSummary || formData.description}"&gt;\n&lt;meta name="description" content="${formData.description}"&gt;\n&lt;meta name="geo.region" content="${formData.addressRegion}"&gt;\n&lt;meta name="geo.placename" content="${formData.addressLocality}"&gt;${formData.latitude && formData.longitude ? `\n&lt;meta name="geo.position" content="${formData.latitude};${formData.longitude}"&gt;` : ''}`;
         
         const finalOutput = `${metaTags}\n\n${fullScript}`;
         setGeneratedSchema(finalOutput);
@@ -348,9 +480,9 @@ export default function Home() {
             timestamp: new Date().toLocaleString(),
             schema: finalOutput
         };
-        setSchemaHistory(prev => [newHistoryItem, ...prev].slice(0, 10)); // Keep last 10
+        setSchemaHistory(prev => [newHistoryItem, ...prev].slice(0, 10));
 
-        toast({ title: 'Schema Generated!', description: 'Your voice-optimized schema is ready.'});
+        toast({ title: 'Enhanced Schema Generated!', description: 'Your comprehensive voice-optimized schema with local SEO is ready.'});
     }, [formData, socialProfiles, toast, setSchemaHistory]);
 
     const copySchema = () => {
@@ -387,9 +519,39 @@ export default function Home() {
         document.body.removeChild(form);
     };
 
-
     const resetFields = () => {
-        setFormData({ businessType: 'LocalBusiness', name: '', url: '', description: '', telephone: '', email: '', streetAddress: '', addressLocality: '', addressRegion: '', postalCode: '', addressCountry: 'US', voiceSummary: '', speakableContent: '.business-summary, .contact-info, .hours-info, .voice-answer', voiceKeywords: 'near me, best, top rated, local, professional', faqQuestions: 'What are your hours?\nWhere are you located?\nDo you offer free estimates?\nHow can I contact you?', serviceAreas: '', ratingValue: '', reviewCount: '', latitude: '', longitude: '', googleMap: '', servicesOffered: '', });
+        setFormData({ 
+            businessType: 'LocalBusiness', 
+            name: '', 
+            url: '', 
+            description: '', 
+            telephone: '', 
+            email: '', 
+            streetAddress: '', 
+            addressLocality: '', 
+            addressRegion: '', 
+            postalCode: '', 
+            addressCountry: 'US', 
+            voiceSummary: '', 
+            speakableContent: '.business-summary, .contact-info, .hours-info, .voice-answer', 
+            voiceKeywords: 'near me, best, top rated, local, professional', 
+            faqQuestions: 'What are your hours?\nWhere are you located?\nDo you offer free estimates?\nHow can I contact you?\nWhat services do you provide?', 
+            faqAnswers: 'We are open Monday-Friday 9AM-5PM\nWe are located at [Your Address]\nYes, we provide free estimates\nCall us at [Phone] or email [Email]\nWe offer [list your services]',
+            serviceAreas: '', 
+            ratingValue: '', 
+            reviewCount: '', 
+            latitude: '', 
+            longitude: '', 
+            googleMap: '', 
+            servicesOffered: '',
+            businessHours: '',
+            priceRange: '',
+            alternativeNames: '',
+            foundingDate: '',
+            paymentMethods: '',
+            awards: '',
+            specialOffers: ''
+        });
         setSocialProfiles([]);
         setGeneratedSchema('');
         toast({ title: 'Fields Reset', description: 'All form fields have been cleared.' });
@@ -442,6 +604,7 @@ export default function Home() {
     const tabContent = useMemo(() => {
       switch(activeTab) {
         case 'basic': return <BasicInfoTab formData={formData} handleChange={handleChange} handleSelectChange={handleSelectChange} />;
+        case 'local': return <LocalSeoTab formData={formData} handleChange={handleChange} />;
         case 'voice': return <VoiceSearchTab formData={formData} handleChange={handleChange} />;
         case 'advanced': return <AdvancedTab formData={formData} handleChange={handleChange} socialProfiles={socialProfiles} setSocialProfiles={setSocialProfiles} />;
         default: return null;
@@ -466,7 +629,7 @@ export default function Home() {
                           transition={{ duration: 0.5, delay: 0.2 }}
                         >
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-3 text-2xl"><SlidersHorizontal className="text-primary"/>Configuration</CardTitle>
+                                <CardTitle className="flex items-center gap-3 text-2xl"><SlidersHorizontal className="text-primary"/>Manual Configuration</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="flex w-full rounded-lg bg-background p-1 mb-6 border border-border">
@@ -474,7 +637,7 @@ export default function Home() {
                                         <button
                                             key={tabId}
                                             onClick={() => setActiveTab(tabId)}
-                                            className={`flex-1 p-2.5 rounded-md transition-all duration-200 font-medium text-sm text-muted-foreground relative z-10 flex items-center justify-center gap-2`}
+                                            className={`flex-1 p-2.5 rounded-md transition-all duration-200 font-medium text-xs text-muted-foreground relative z-10 flex items-center justify-center gap-2`}
                                         >
                                             {activeTab === tabId && <motion.div layoutId="active-tab-indicator" className="absolute inset-0 bg-primary/20 border border-primary/50 rounded-md z-[-1]" />}
                                             {TABS[tabId as keyof typeof TABS]}
@@ -487,16 +650,16 @@ export default function Home() {
                                 </AnimatePresence>
 
                                 <div className="grid grid-cols-2 gap-3 mt-8">
-                                    <Button onClick={generateSchema} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold col-span-2"><Wand2 />Generate Schema</Button>
-                                    <Button variant="outline" onClick={copySchema}><Copy/>Copy</Button>
-                                    <Button variant="outline" onClick={validateSchema}><CircleCheck/>Validate with Google</Button>
-                                    <Button variant="destructive" onClick={resetFields} className="col-span-2"><Trash2/>Reset All</Button>
+                                    <Button onClick={generateSchema} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold col-span-2 h-12 px-6 py-3 text-base"><Wand2 className="mr-2" />Generate Enhanced Schema</Button>
+                                    <Button variant="outline" onClick={copySchema} className="h-10 px-4 py-2"><Copy className="mr-2 h-4 w-4"/>Copy</Button>
+                                    <Button variant="outline" onClick={validateSchema} className="h-10 px-4 py-2"><CircleCheck className="mr-2 h-4 w-4"/>Validate with Google</Button>
+                                    <Button variant="destructive" onClick={resetFields} className="col-span-2 h-10 px-4 py-2"><Trash2 className="mr-2 h-4 w-4"/>Reset All</Button>
                                 </div>
                             </CardContent>
                         </MotionCard>
                     </div>
 
-                    <div className="lg:sticky lg:top-24 flex flex-col gap-8">
+                    <div className="lg:sticky lg:top-8 flex flex-col gap-8">
                         <MotionCard 
                           className="bg-card/50 border-border shadow-2xl backdrop-blur-xl"
                           initial={{ opacity: 0, y: 50 }}
