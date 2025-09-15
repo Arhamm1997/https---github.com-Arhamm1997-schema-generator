@@ -28,6 +28,15 @@ interface PartyPopper {
   delay: number;
 }
 
+interface Sparkle {
+  id: number;
+  x: number;
+  y: number;
+  delay: number;
+  size: number;
+  duration: number;
+}
+
 interface CelebrationEffectProps {
   isActive: boolean;
   type: 'welcome' | 'schema';
@@ -38,12 +47,18 @@ const CelebrationEffect: React.FC<CelebrationEffectProps> = ({ isActive, type, o
   const [confetti, setConfetti] = useState<ConfettiPiece[]>([]);
   const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([]);
   const [partyPoppers, setPartyPoppers] = useState<PartyPopper[]>([]);
+  const [sparkles, setSparkles] = useState<Sparkle[]>([]);
 
   const confettiColors = [
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', 
     '#FF9FF3', '#54A0FF', '#5F27CD', '#00D2D3', '#FF9F43',
     '#10AC84', '#EE5A24', '#0984E3', '#6C5CE7', '#FD79A8',
     '#FDCB6E', '#E17055', '#74B9FF', '#A29BFE', '#FD79A8'
+  ];
+
+  const sparkleColors = [
+    '#FFD700', '#FFA500', '#FF69B4', '#00CED1', '#9370DB',
+    '#FF1493', '#00FF7F', '#FF4500', '#DA70D6', '#20B2AA'
   ];
 
   const celebrationEmojis = ['🎉', '🎊', '✨', '🌟', '🎈'];
@@ -60,7 +75,7 @@ const CelebrationEffect: React.FC<CelebrationEffectProps> = ({ isActive, type, o
           newPartyPoppers.push({
             id: i,
             side: 'top',
-            x: (i + 1) * 12.5, // Distribute across top
+            x: (i + 1) * 12.5,
             y: 0,
             delay: Math.random() * 0.5,
           });
@@ -72,7 +87,7 @@ const CelebrationEffect: React.FC<CelebrationEffectProps> = ({ isActive, type, o
             id: i + 8,
             side: 'right',
             x: 100,
-            y: (i + 1) * 16.67, // Distribute across right
+            y: (i + 1) * 16.67,
             delay: Math.random() * 0.5,
           });
         }
@@ -82,7 +97,7 @@ const CelebrationEffect: React.FC<CelebrationEffectProps> = ({ isActive, type, o
           newPartyPoppers.push({
             id: i + 14,
             side: 'bottom',
-            x: (i + 1) * 12.5, // Distribute across bottom
+            x: (i + 1) * 12.5,
             y: 100,
             delay: Math.random() * 0.5,
           });
@@ -94,7 +109,7 @@ const CelebrationEffect: React.FC<CelebrationEffectProps> = ({ isActive, type, o
             id: i + 22,
             side: 'left',
             x: 0,
-            y: (i + 1) * 16.67, // Distribute across left
+            y: (i + 1) * 16.67,
             delay: Math.random() * 0.5,
           });
         }
@@ -113,39 +128,67 @@ const CelebrationEffect: React.FC<CelebrationEffectProps> = ({ isActive, type, o
 
         setConfetti(newConfetti);
 
+        // Generate sparkles for welcome
+        const newSparkles: Sparkle[] = Array.from({ length: 50 }, (_, i) => ({
+          id: i,
+          x: Math.random() * 100,
+          y: Math.random() * 100,
+          delay: Math.random() * 2,
+          size: Math.random() * 8 + 4,
+          duration: 2 + Math.random() * 2,
+        }));
+
+        setSparkles(newSparkles);
+
         // Clear after 6 seconds
         const timeout = setTimeout(() => {
           setPartyPoppers([]);
           setConfetti([]);
+          setSparkles([]);
           onComplete?.();
         }, 6000);
 
         return () => clearTimeout(timeout);
 
       } else if (type === 'schema') {
-        // Generate sparkle effect for schema generation
-        const newConfetti: ConfettiPiece[] = Array.from({ length: 100 }, (_, i) => ({
+        // Generate sparkles for schema generation (main effect)
+        const newSparkles: Sparkle[] = Array.from({ length: 80 }, (_, i) => ({
           id: i,
           x: Math.random() * 100,
-          color: '#FFD700', // Gold sparkles
+          y: Math.random() * 100,
           delay: Math.random() * 1.5,
-          rotation: Math.random() * 360,
-          size: Math.random() * 4 + 2,
+          size: Math.random() * 12 + 6,
+          duration: 1.5 + Math.random() * 2,
         }));
 
-        const newEmojis: FloatingEmoji[] = Array.from({ length: 3 }, (_, i) => ({
+        setSparkles(newSparkles);
+
+        // Generate golden confetti for schema
+        const newConfetti: ConfettiPiece[] = Array.from({ length: 60 }, (_, i) => ({
           id: i,
-          emoji: ['✨', '⭐', '🌟'][Math.floor(Math.random() * 3)],
+          x: Math.random() * 100,
+          color: sparkleColors[Math.floor(Math.random() * sparkleColors.length)],
+          delay: Math.random() * 1,
+          rotation: Math.random() * 360,
+          size: Math.random() * 6 + 3,
+        }));
+
+        setConfetti(newConfetti);
+
+        // Generate floating emojis for schema
+        const newEmojis: FloatingEmoji[] = Array.from({ length: 5 }, (_, i) => ({
+          id: i,
+          emoji: ['✨', '⭐', '🌟', '💫', '🎯'][Math.floor(Math.random() * 5)],
           x: Math.random() * 80 + 10,
           y: Math.random() * 60 + 20,
           delay: Math.random() * 0.5,
         }));
 
-        setConfetti(newConfetti);
         setFloatingEmojis(newEmojis);
 
         // Clear after 4 seconds
         const timeout = setTimeout(() => {
+          setSparkles([]);
           setConfetti([]);
           setFloatingEmojis([]);
           onComplete?.();
@@ -160,16 +203,7 @@ const CelebrationEffect: React.FC<CelebrationEffectProps> = ({ isActive, type, o
 
   return (
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-      {/* Background blur for welcome */}
-      {type === 'welcome' && (
-        <motion.div
-          className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.5 }}
-        />
-      )}
+      {/* NO BACKGROUND BLUR - REMOVED */}
 
       {/* Party Poppers for welcome */}
       <AnimatePresence>
@@ -212,6 +246,73 @@ const CelebrationEffect: React.FC<CelebrationEffectProps> = ({ isActive, type, o
         ))}
       </AnimatePresence>
 
+      {/* Sparkles (for both welcome and schema) */}
+      <AnimatePresence>
+        {sparkles.map((sparkle) => (
+          <motion.div
+            key={sparkle.id}
+            className="absolute"
+            style={{
+              left: `${sparkle.x}%`,
+              top: `${sparkle.y}%`,
+              width: `${sparkle.size}px`,
+              height: `${sparkle.size}px`,
+            }}
+            initial={{
+              scale: 0,
+              opacity: 0,
+              rotate: 0,
+            }}
+            animate={{
+              scale: [0, 1.5, 1, 1.2, 0],
+              opacity: [0, 1, 0.8, 1, 0],
+              rotate: [0, 180, 360, 540, 720],
+            }}
+            transition={{
+              duration: sparkle.duration,
+              delay: sparkle.delay,
+              ease: 'easeInOut',
+              times: [0, 0.2, 0.5, 0.8, 1],
+            }}
+            exit={{ scale: 0, opacity: 0 }}
+          >
+            <motion.div
+              className="w-full h-full rounded-full"
+              style={{
+                background: `radial-gradient(circle, ${sparkleColors[Math.floor(Math.random() * sparkleColors.length)]}, transparent)`,
+                boxShadow: `0 0 ${sparkle.size}px ${sparkleColors[Math.floor(Math.random() * sparkleColors.length)]}`,
+              }}
+              animate={{
+                scale: [1, 1.2, 1],
+              }}
+              transition={{
+                duration: 0.5,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
+            >
+              <motion.div
+                className="absolute inset-0 text-center"
+                style={{
+                  fontSize: `${sparkle.size * 0.6}px`,
+                  lineHeight: `${sparkle.size}px`,
+                }}
+                animate={{
+                  rotate: [0, 360],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: 'linear',
+                }}
+              >
+                ✨
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+
       {/* Confetti */}
       <AnimatePresence>
         {confetti.map((piece) => (
@@ -223,7 +324,8 @@ const CelebrationEffect: React.FC<CelebrationEffectProps> = ({ isActive, type, o
               left: `${piece.x}%`,
               width: `${piece.size}px`,
               height: `${piece.size}px`,
-              borderRadius: type === 'schema' ? '50%' : '2px', // Circles for sparkles, squares for confetti
+              borderRadius: type === 'schema' ? '50%' : '2px',
+              boxShadow: type === 'schema' ? `0 0 ${piece.size * 2}px ${piece.color}` : 'none',
             }}
             initial={{
               y: -20,
@@ -255,6 +357,7 @@ const CelebrationEffect: React.FC<CelebrationEffectProps> = ({ isActive, type, o
             style={{
               left: `${emoji.x}%`,
               top: `${emoji.y}%`,
+              filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.8))',
             }}
             initial={{
               scale: 0,
@@ -264,7 +367,7 @@ const CelebrationEffect: React.FC<CelebrationEffectProps> = ({ isActive, type, o
             animate={{
               scale: [0, 1.3, 1],
               opacity: [0, 1, 1, 0],
-              y: [50, -20, 0, -10, 0],
+              y: [50, -20, 10, -5, 0],
               rotate: [0, 10, -10, 5, 0],
             }}
             transition={{
@@ -279,6 +382,7 @@ const CelebrationEffect: React.FC<CelebrationEffectProps> = ({ isActive, type, o
               animate={{
                 y: [-5, 5, -5],
                 rotate: [-5, 5, -5],
+                scale: [1, 1.1, 1],
               }}
               transition={{
                 duration: 1.5,
