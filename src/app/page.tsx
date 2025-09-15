@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import useLocalStorage from '@/hooks/use-local-storage';
 import type { HistoryItem } from '@/lib/types';
-import { cleanObject } from '@/lib/utils';
+import { cleanObject, validateFormData, validateSchema } from '@/lib/utils';
 import { SlidersHorizontal, Code, History, Copy, Trash2, Download, CircleCheck, AlertTriangle, Wand2, Bot, Link, MapPin, Clock, Star, Image, Type, Heading1, Plus, X, User, Building, Calendar, FileText, List } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { generateSchemaFromUrl } from '@/ai/flows/generate-schema-from-url';
 import { Checkbox } from '@/components/ui/checkbox';
 import CelebrationEffect from '@/components/CelebrationEffect';
+import WelcomeMessage from '@/components/WelcomeMessage';
 
 const MotionCard = motion(Card);
 
@@ -519,7 +520,6 @@ const LocalSeoTab = ({ formData, handleChange }: any) => {
 const VoiceSearchTab = ({ formData, handleChange }: any) => (
     <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
         <FormField id="voiceSummary" name="voiceSummary" label="Voice Search Summary" type="textarea" rows={2} placeholder="Brief summary perfect for voice assistants (20-30 words)..." tooltip="This will be used for voice search results" value={formData.voiceSummary} onChange={handleChange}/>
-        <FormField id="speakableContent" name="speakableContent" label="Speakable Content CSS Selectors" type="textarea" rows={3} placeholder=".business-summary, .contact-info, .hours-info, .voice-answer" value={formData.speakableContent} onChange={handleChange} tooltip="CSS selectors for content that should be read aloud"/>
         <FormField id="voiceKeywords" name="voiceKeywords" label="Voice Search Keywords" placeholder="near me, best, top rated, how to, what is, local" value={formData.voiceKeywords} onChange={handleChange} tooltip="Keywords people use in voice searches"/>
         <FormField id="faqQuestions" name="faqQuestions" label="Frequently Asked Questions" type="textarea" rows={6} placeholder="What are your hours?&#10;Where are you located?&#10;Do you offer free estimates?&#10;How can I contact you?&#10;What services do you provide?&#10;Do you accept insurance?" value={formData.faqQuestions} onChange={handleChange} tooltip="Questions customers commonly ask - one per line"/>
         <FormField id="faqAnswers" name="faqAnswers" label="FAQ Answers" type="textarea" rows={6} placeholder="We're open Monday-Friday 9AM-5PM&#10;We're located at [Your Address]&#10;Yes, we provide free estimates&#10;Call us at [Phone] or email [Email]&#10;We offer [list services]&#10;Yes, we accept most major insurance plans" value={formData.faqAnswers} onChange={handleChange} tooltip="Answers to FAQs - match the order of questions above"/>
@@ -591,10 +591,19 @@ export default function Home() {
     const [selectedHistory, setSelectedHistory] = useState<Set<string>>(new Set());
     const [isMounted, setIsMounted] = useState(false);
     const [isAiGenerated, setIsAiGenerated] = useState(false);
-    const [showCelebration, setShowCelebration] = useState(false);
+    const [showSchemaCelebration, setShowSchemaCelebration] = useState(false);
+    const [showWelcome, setShowWelcome] = useState(false);
+    const [showWelcomeCelebration, setShowWelcomeCelebration] = useState(false);
     
     useEffect(() => {
         setIsMounted(true);
+        // Show welcome message on page load/refresh
+        const hasShownWelcome = sessionStorage.getItem('hasShownWelcome');
+        if (!hasShownWelcome) {
+            setShowWelcome(true);
+            setShowWelcomeCelebration(true);
+            sessionStorage.setItem('hasShownWelcome', 'true');
+        }
     }, []);
 
     const [formData, setFormData] = useLocalStorage('formData', {
@@ -624,7 +633,6 @@ export default function Home() {
         postalCode: '', 
         addressCountry: 'US', 
         voiceSummary: '', 
-        speakableContent: '.business-summary, .contact-info, .hours-info, .voice-answer', 
         voiceKeywords: 'near me, best, top rated, local, professional', 
         faqQuestions: 'What are your hours?\nWhere are you located?\nDo you offer free estimates?\nHow can I contact you?\nWhat services do you provide?', 
         faqAnswers: 'We are open Monday-Friday 9AM-5PM\nWe are located at [Your Address]\nYes, we provide free estimates\nCall us at [Phone] or email [Email]\nWe offer [list your services]',
@@ -647,7 +655,7 @@ export default function Home() {
     const handleAiSchemaGenerated = (schema: string, name: string) => {
         setGeneratedSchema(schema);
         setIsAiGenerated(true);
-        setShowCelebration(true);
+        setShowSchemaCelebration(true);
         
         const newHistoryItem: HistoryItem = {
             id: Date.now().toString(),
@@ -658,8 +666,16 @@ export default function Home() {
         setSchemaHistory(prev => [newHistoryItem, ...prev].slice(0, 10));
     };
 
-    const handleCelebrationComplete = () => {
-        setShowCelebration(false);
+    const handleWelcomeClose = () => {
+        setShowWelcome(false);
+    };
+
+    const handleWelcomeCelebrationComplete = () => {
+        setShowWelcomeCelebration(false);
+    };
+
+    const handleSchemaCelebrationComplete = () => {
+        setShowSchemaCelebration(false);
     };
 
     const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -676,48 +692,66 @@ export default function Home() {
     const generateSchema = useCallback(() => {
         const contentType = formData.contentType || 'LocalBusiness';
 
-        if (contentType === 'Article') {
-            // Article schema validation
-            if (!formData.headline || !formData.authorName || !formData.publisherName) {
-                toast({ variant: 'destructive', title: 'Missing Information', description: 'Please fill in headline, author name, and publisher name for Article schema.' });
-                setActiveTab('basic');
-                return;
-            }
+        // Validate form data first
+        const validation = validateFormData(formData);
+        if (!validation.isValid) {
+            toast({ 
+                variant: 'destructive', 
+                title: 'Validation Error', 
+                description: validation.errors.join(', ') 
+            });
+            setActiveTab('basic');
+            return;
+        }
 
+        const cleanedFormData = validation.cleanedData;
+
+        if (contentType === 'Article') {
             const articleSchema = {
                 "@context": "https://schema.org",
                 "@type": "Article",
-                "headline": formData.headline,
+                "headline": cleanedFormData.headline,
                 "author": {
-                    "@type": formData.authorType || 'Person',
-                    "name": formData.authorName
+                    "@type": cleanedFormData.authorType || 'Person',
+                    "name": cleanedFormData.authorName
                 },
                 "publisher": {
                     "@type": "Organization",
-                    "name": formData.publisherName,
-                    "logo": formData.publisherLogoUrl ? {
+                    "name": cleanedFormData.publisherName,
+                    "logo": cleanedFormData.publisherLogoUrl ? {
                         "@type": "ImageObject",
-                        "url": formData.publisherLogoUrl
+                        "url": cleanedFormData.publisherLogoUrl
                     } : undefined
                 },
-                "datePublished": formData.datePublished || new Date().toISOString(),
-                "dateModified": formData.dateModified || formData.datePublished || new Date().toISOString(),
+                "datePublished": cleanedFormData.datePublished || new Date().toISOString(),
+                "dateModified": cleanedFormData.dateModified || cleanedFormData.datePublished || new Date().toISOString(),
                 "image": images.length > 0 ? images.map(img => ({
                     "@type": "ImageObject",
                     "url": img
                 })) : undefined,
-                "description": formData.voiceSummary || formData.howToDescription,
-                "keywords": formData.voiceKeywords
+                "description": cleanedFormData.voiceSummary || cleanedFormData.howToDescription,
+                "keywords": cleanedFormData.voiceKeywords
             };
 
             const cleanedSchema = cleanObject(articleSchema);
+            
+            // Validate generated schema
+            const schemaValidation = validateSchema(cleanedSchema);
+            if (!schemaValidation.isValid) {
+                toast({ 
+                    variant: 'destructive', 
+                    title: 'Schema Validation Error', 
+                    description: schemaValidation.errors.join(', ') 
+                });
+                return;
+            }
+
             const fullScript = `<script type="application/ld+json">\n${JSON.stringify(cleanedSchema, null, 2)}\n</script>`;
             setGeneratedSchema(fullScript);
 
         } else if (contentType === 'HowTo') {
-            // HowTo schema validation
-            if (!formData.howToName || howToSteps.length === 0) {
-                toast({ variant: 'destructive', title: 'Missing Information', description: 'Please fill in the how-to title and add at least one step.' });
+            if (howToSteps.length === 0) {
+                toast({ variant: 'destructive', title: 'Missing Information', description: 'Please add at least one step to your how-to guide.' });
                 setActiveTab('basic');
                 return;
             }
@@ -725,8 +759,8 @@ export default function Home() {
             const howToSchema = {
                 "@context": "https://schema.org/",
                 "@type": "HowTo",
-                "name": formData.howToName,
-                "description": formData.howToDescription,
+                "name": cleanedFormData.howToName,
+                "description": cleanedFormData.howToDescription,
                 "image": images.length > 0 ? images.map(img => ({
                     "@type": "ImageObject",
                     "url": img
@@ -739,26 +773,27 @@ export default function Home() {
             };
 
             const cleanedSchema = cleanObject(howToSchema);
+            
+            // Validate generated schema
+            const schemaValidation = validateSchema(cleanedSchema);
+            if (!schemaValidation.isValid) {
+                toast({ 
+                    variant: 'destructive', 
+                    title: 'Schema Validation Error', 
+                    description: schemaValidation.errors.join(', ') 
+                });
+                return;
+            }
+
             const fullScript = `<script type="application/ld+json">\n${JSON.stringify(cleanedSchema, null, 2)}\n</script>`;
             setGeneratedSchema(fullScript);
 
         } else {
-            // Business schema validation - more lenient for AI-generated content
-            const { name, description, telephone } = formData;
-            
-            // Strict validation for manual entry
+            // Business schema - enhanced validation
             if (!isAiGenerated) {
-                const { streetAddress, addressLocality, addressRegion } = formData;
-                if (!name || !description || !telephone || !streetAddress || !addressLocality || !addressRegion) {
-                    toast({ variant: 'destructive', title: 'Missing Information', description: 'Please fill in all required business fields.' });
-                    setActiveTab('basic');
-                    return;
-                }
-            } else {
-                // More lenient validation for AI-generated content
-                if (!name || !description) {
-                    toast({ variant: 'destructive', title: 'Missing Information', description: 'Please ensure business name and description are provided.' });
-                    setActiveTab('basic');
+                if (!cleanedFormData.streetAddress || !cleanedFormData.addressLocality || !cleanedFormData.addressRegion) {
+                    toast({ variant: 'destructive', title: 'Missing Address Information', description: 'Please provide complete address information including street, city, and state.' });
+                    setActiveTab('local');
                     return;
                 }
             }
@@ -766,9 +801,9 @@ export default function Home() {
             const baseSchema = {
                 "@context": "https://schema.org",
                 "@type": "WebPage",
-                "url": formData.websiteUrl,
-                "name": formData.pageTitle || formData.name,
-                "headline": formData.pageH1 || formData.pageTitle || formData.name,
+                "url": cleanedFormData.websiteUrl,
+                "name": cleanedFormData.pageTitle || cleanedFormData.name,
+                "headline": cleanedFormData.pageH1 || cleanedFormData.pageTitle || cleanedFormData.name,
             };
 
             // Add images if provided
@@ -776,23 +811,23 @@ export default function Home() {
                 baseSchema.image = images.map(img => ({
                     "@type": "ImageObject",
                     "url": img,
-                    "name": formData.pageTitle || formData.name
+                    "name": cleanedFormData.pageTitle || cleanedFormData.name
                 }));
             }
 
             const mainEntity: any = {
                 "@type": contentType,
-                "name": formData.name,
-                "description": formData.description,
-                "url": formData.websiteUrl,
-                "telephone": formData.telephone || "Contact us for phone number",
+                "name": cleanedFormData.name,
+                "description": cleanedFormData.description,
+                "url": cleanedFormData.websiteUrl,
+                "telephone": cleanedFormData.telephone,
                 "address": {
                     "@type": "PostalAddress",
-                    "streetAddress": formData.streetAddress || "Address available upon request",
-                    "addressLocality": formData.addressLocality || "Local Area",
-                    "addressRegion": formData.addressRegion || "State",
-                    "postalCode": formData.postalCode,
-                    "addressCountry": formData.addressCountry || "US"
+                    "streetAddress": cleanedFormData.streetAddress,
+                    "addressLocality": cleanedFormData.addressLocality,
+                    "addressRegion": cleanedFormData.addressRegion,
+                    "postalCode": cleanedFormData.postalCode,
+                    "addressCountry": cleanedFormData.addressCountry || "US"
                 },
             };
 
@@ -805,14 +840,14 @@ export default function Home() {
                 mainEntity.image = images.map(img => ({
                     "@type": "ImageObject",
                     "url": img,
-                    "name": formData.name
+                    "name": cleanedFormData.name
                 }));
             }
 
             // Enhanced FAQ handling
-            if (formData.faqQuestions && formData.faqAnswers) {
-                const questions = formData.faqQuestions.split('\n').filter(q => q.trim());
-                const answers = formData.faqAnswers.split('\n').filter(a => a.trim());
+            if (cleanedFormData.faqQuestions && cleanedFormData.faqAnswers) {
+                const questions = cleanedFormData.faqQuestions.split('\n').filter(q => q.trim());
+                const answers = cleanedFormData.faqAnswers.split('\n').filter(a => a.trim());
                 
                 if (questions.length > 0) {
                     const faqEntity = questions.map((question, index) => ({
@@ -820,7 +855,7 @@ export default function Home() {
                         "name": question.trim(),
                         "acceptedAnswer": {
                             "@type": "Answer",
-                            "text": answers[index]?.trim() || `Contact us at ${formData.telephone || 'our phone number'} for more information.`
+                            "text": answers[index]?.trim() || `Contact us at ${cleanedFormData.telephone || 'our phone number'} for more information.`
                         }
                     }));
                     
@@ -835,17 +870,23 @@ export default function Home() {
 
             // Enhanced business hours
             let openingHours = undefined;
-            if (formData.businessHours) {
-                const hoursLines = formData.businessHours.split('\n').filter(line => line.trim());
+            if (cleanedFormData.businessHours) {
+                const hoursLines = cleanedFormData.businessHours.split('\n').filter(line => line.trim());
                 openingHours = hoursLines.map(line => {
                     const parts = line.split(':');
                     if (parts.length >= 2) {
-                        return {
-                            "@type": "OpeningHoursSpecification",
-                            "dayOfWeek": parts[0].trim(),
-                            "opens": parts[1].trim().split('-')[0]?.trim(),
-                            "closes": parts[1].trim().split('-')[1]?.trim()
-                        };
+                        const dayOfWeek = parts[0].trim();
+                        const timeRange = parts[1].trim();
+                        const [opens, closes] = timeRange.split('-').map(t => t.trim());
+                        
+                        if (opens && closes) {
+                            return {
+                                "@type": "OpeningHoursSpecification",
+                                "dayOfWeek": dayOfWeek,
+                                "opens": opens,
+                                "closes": closes
+                            };
+                        }
                     }
                     return null;
                 }).filter(Boolean);
@@ -853,74 +894,78 @@ export default function Home() {
 
             const cleanedMainEntity = cleanObject({
                 ...mainEntity,
-                email: formData.email,
-                priceRange: formData.priceRange,
-                paymentAccepted: formData.paymentMethods ? formData.paymentMethods.split(',').map(p => p.trim()) : undefined,
-                foundingDate: formData.foundingDate,
-                alternateName: formData.alternativeNames ? formData.alternativeNames.split(',').map(n => n.trim()) : undefined,
+                email: cleanedFormData.email,
+                priceRange: cleanedFormData.priceRange,
+                paymentAccepted: cleanedFormData.paymentMethods ? cleanedFormData.paymentMethods.split(',').map(p => p.trim()) : undefined,
+                foundingDate: cleanedFormData.foundingDate,
+                alternateName: cleanedFormData.alternativeNames ? cleanedFormData.alternativeNames.split(',').map(n => n.trim()) : undefined,
                 openingHoursSpecification: openingHours,
-                geo: (formData.latitude && formData.longitude) ? { 
+                geo: (cleanedFormData.latitude && cleanedFormData.longitude) ? { 
                     "@type": "GeoCoordinates", 
-                    latitude: parseFloat(formData.latitude), 
-                    longitude: parseFloat(formData.longitude) 
+                    latitude: parseFloat(cleanedFormData.latitude), 
+                    longitude: parseFloat(cleanedFormData.longitude) 
                 } : undefined,
-                hasMap: formData.googleMap,
-                aggregateRating: (formData.ratingValue && formData.reviewCount) ? { 
+                hasMap: cleanedFormData.googleMap,
+                aggregateRating: (cleanedFormData.ratingValue && cleanedFormData.reviewCount) ? { 
                     "@type": "AggregateRating", 
-                    ratingValue: parseFloat(formData.ratingValue), 
-                    reviewCount: parseInt(formData.reviewCount),
+                    ratingValue: parseFloat(cleanedFormData.ratingValue), 
+                    reviewCount: parseInt(cleanedFormData.reviewCount),
                     bestRating: "5",
                     worstRating: "1"
                 } : undefined,
-                areaServed: formData.serviceAreas ? formData.serviceAreas.split(',').map(area => ({ 
+                areaServed: cleanedFormData.serviceAreas ? cleanedFormData.serviceAreas.split(',').map(area => ({ 
                     "@type": "Place", 
                     "name": area.trim() 
                 })) : undefined,
-                makesOffer: formData.servicesOffered ? formData.servicesOffered.split('\n').filter(s => s.trim()).map(s => ({ 
+                makesOffer: cleanedFormData.servicesOffered ? cleanedFormData.servicesOffered.split('\n').filter(s => s.trim()).map(s => ({ 
                     "@type": "Offer", 
                     "itemOffered": { 
                         "@type": "Service", 
                         "name": s.trim() 
                     }
                 })) : undefined,
-                hasOfferCatalog: formData.specialOffers ? {
+                hasOfferCatalog: cleanedFormData.specialOffers ? {
                     "@type": "OfferCatalog",
                     "name": "Special Offers",
-                    "itemListElement": formData.specialOffers.split('\n').filter(o => o.trim()).map(offer => ({
+                    "itemListElement": cleanedFormData.specialOffers.split('\n').filter(o => o.trim()).map(offer => ({
                         "@type": "Offer",
                         "name": offer.trim()
                     }))
                 } : undefined,
-                award: formData.awards ? formData.awards.split('\n').filter(a => a.trim()) : undefined,
+                award: cleanedFormData.awards ? cleanedFormData.awards.split('\n').filter(a => a.trim()) : undefined,
                 sameAs: socialProfiles.length > 0 ? socialProfiles : undefined,
             });
-
-            const speakableContent = formData.speakableContent ? {
-                "@type": "SpeakableSpecification", 
-                cssSelector: formData.speakableContent.split(',').map(s => s.trim()) 
-            } : undefined;
             
             const finalSchema = {
                 ...baseSchema,
                 mainEntity: cleanedMainEntity,
-                speakable: speakableContent,
-                keywords: formData.voiceKeywords,
-                description: formData.voiceSummary || formData.description,
+                keywords: cleanedFormData.voiceKeywords,
+                description: cleanedFormData.voiceSummary || cleanedFormData.description,
             };
 
             const cleanedFinalSchema = cleanObject(finalSchema);
+            
+            // Validate generated schema
+            const schemaValidation = validateSchema(cleanedFinalSchema);
+            if (!schemaValidation.isValid) {
+                console.warn('Schema validation warnings:', schemaValidation.errors);
+                // Don't block generation for minor validation issues, just warn
+            }
+
             const fullScript = `<script type="application/ld+json">\n${JSON.stringify(cleanedFinalSchema, null, 2)}\n</script>`;
             setGeneratedSchema(fullScript);
         }
         
         const newHistoryItem: HistoryItem = {
             id: Date.now().toString(),
-            name: formData.name || formData.headline || formData.howToName || 'Untitled Schema',
+            name: cleanedFormData.name || cleanedFormData.headline || cleanedFormData.howToName || 'Untitled Schema',
             timestamp: new Date().toLocaleString(),
             schema: generatedSchema
         };
         setSchemaHistory(prev => [newHistoryItem, ...prev].slice(0, 10));
 
+        // Show schema celebration
+        setShowSchemaCelebration(true);
         toast({ title: 'Enhanced Schema Generated!', description: 'Your comprehensive schema is ready.' });
     }, [formData, socialProfiles, images, howToSteps, toast, setSchemaHistory, generatedSchema, isAiGenerated]);
 
@@ -983,7 +1028,6 @@ export default function Home() {
             postalCode: '', 
             addressCountry: 'US', 
             voiceSummary: '', 
-            speakableContent: '.business-summary, .contact-info, .hours-info, .voice-answer', 
             voiceKeywords: 'near me, best, top rated, local, professional', 
             faqQuestions: 'What are your hours?\nWhere are you located?\nDo you offer free estimates?\nHow can I contact you?\nWhat services do you provide?', 
             faqAnswers: 'We are open Monday-Friday 9AM-5PM\nWe are located at [Your Address]\nYes, we provide free estimates\nCall us at [Phone] or email [Email]\nWe offer [list your services]',
@@ -1071,10 +1115,29 @@ export default function Home() {
     return (
         <div className="min-h-screen w-full">
             <Header />
+            
+            {/* Welcome Message */}
+            <AnimatePresence>
+                {showWelcome && (
+                    <WelcomeMessage 
+                        isVisible={showWelcome} 
+                        onClose={handleWelcomeClose}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* Celebration Effects */}
             <CelebrationEffect 
-                isActive={showCelebration} 
-                onComplete={handleCelebrationComplete}
+                isActive={showWelcomeCelebration} 
+                type="welcome"
+                onComplete={handleWelcomeCelebrationComplete}
             />
+            <CelebrationEffect 
+                isActive={showSchemaCelebration} 
+                type="schema"
+                onComplete={handleSchemaCelebrationComplete}
+            />
+
             <main className="max-w-screen-xl mx-auto p-4 md:p-6 lg:p-8">
                 <div className="grid lg:grid-cols-2 gap-8 items-start">
                     <div>
@@ -1142,10 +1205,15 @@ export default function Home() {
                             </CardContent>
                         </MotionCard>
                         
-
-
-
-                             <CardHeader>
+                        <MotionCard 
+                          className="bg-card/50 border-border shadow-2xl backdrop-blur-xl"
+                          initial={{ opacity: 0, y: 50 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5, delay: 0.4 }}
+                        >
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-3 text-2xl"><History className="text-primary"/>Schema History</CardTitle>
+                            </CardHeader>
                                 <CardTitle className="flex items-center gap-3 text-2xl"><History className="text-primary"/>Schema History</CardTitle>
                             </CardHeader>
                             <CardContent>
