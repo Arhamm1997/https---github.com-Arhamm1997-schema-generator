@@ -2,6 +2,7 @@
 /**
  * @fileOverview Enhanced flow for generating comprehensive JSON-LD schema from a given URL.
  * Now includes FAQ extraction, local SEO optimizations, and better content extraction.
+ * Excludes speakable schema but includes all other relevant information.
  */
 
 import { ai } from '@/ai/genkit';
@@ -21,7 +22,7 @@ export type GenerateSchemaOutput = z.infer<typeof GenerateSchemaOutputSchema>;
 const fetchPageContentTool = ai.defineTool(
     {
         name: 'fetchPageContent',
-        description: 'Fetches the HTML content of a given URL and extracts comprehensive content including FAQs, contact info, business details, and images.',
+        description: 'Fetches the HTML content of a given URL and extracts comprehensive content including FAQs, contact info, business details, and images. Does not include speakable content.',
         inputSchema: z.object({ url: z.string().url() }),
         outputSchema: z.object({
             h1: z.string().optional().describe('The content of the first h1 tag.'),
@@ -49,7 +50,15 @@ const fetchPageContentTool = ai.defineTool(
                 count: z.number().optional()
             }).optional().describe('Review rating and count if found.'),
             metaDescription: z.string().optional().describe('Meta description from the page.'),
-            keywords: z.string().optional().describe('Meta keywords from the page.')
+            keywords: z.string().optional().describe('Meta keywords from the page.'),
+            priceRange: z.string().optional().describe('Price range information if found.'),
+            businessType: z.string().optional().describe('Type of business detected.'),
+            location: z.object({
+                latitude: z.number().optional(),
+                longitude: z.number().optional(),
+                address: z.string().optional()
+            }).optional().describe('Location coordinates and address.'),
+            awards: z.array(z.string()).optional().describe('Awards or certifications mentioned.')
         }),
     },
     async ({ url }) => {
@@ -409,6 +418,79 @@ const fetchPageContentTool = ai.defineTool(
                 }
             });
 
+            // Extract price range information
+            let priceRange = '';
+            const priceSelectors = ['.price-range', '.pricing', '.cost', '.price'];
+            priceSelectors.forEach(selector => {
+                if (!priceRange) {
+                    const priceText = $(selector).text().trim();
+                    if (priceText.match(/\$+/)) {
+                        priceRange = priceText;
+                    }
+                }
+            });
+
+            // Detect business type
+            let businessType = 'LocalBusiness';
+            const businessTypeKeywords = {
+                'Restaurant': ['restaurant', 'cafe', 'diner', 'bistro', 'food', 'menu'],
+                'MedicalBusiness': ['medical', 'doctor', 'clinic', 'hospital', 'health'],
+                'LegalService': ['law', 'lawyer', 'attorney', 'legal'],
+                'HVACBusiness': ['hvac', 'heating', 'cooling', 'air conditioning'],
+                'HomeAndConstructionBusiness': ['construction', 'contractor', 'builder', 'renovation'],
+                'ProfessionalService': ['consulting', 'service', 'professional'],
+                'AutomotiveBusiness': ['auto', 'car', 'automotive', 'mechanic']
+            };
+
+            const lowerContent = content.toLowerCase();
+            for (const [type, keywords] of Object.entries(businessTypeKeywords)) {
+                if (keywords.some(keyword => lowerContent.includes(keyword))) {
+                    businessType = type;
+                    break;
+                }
+            }
+
+            // Extract location coordinates (if available in structured data)
+            const location: {latitude?: number, longitude?: number, address?: string} = {};
+            $('script[type="application/ld+json"]').each((_, element) => {
+                try {
+                    const jsonLD = JSON.parse($(element).html() || '');
+                    const extractLocationFromSchema = (schema: any) => {
+                        if (schema.geo && schema.geo.latitude && schema.geo.longitude) {
+                            location.latitude = parseFloat(schema.geo.latitude);
+                            location.longitude = parseFloat(schema.geo.longitude);
+                        }
+                        if (schema.address && typeof schema.address === 'string') {
+                            location.address = schema.address;
+                        } else if (schema.address && schema.address.streetAddress) {
+                            location.address = `${schema.address.streetAddress}, ${schema.address.addressLocality}, ${schema.address.addressRegion}`;
+                        }
+                    };
+
+                    if (Array.isArray(jsonLD)) {
+                        jsonLD.forEach(extractLocationFromSchema);
+                    } else if (jsonLD['@graph']) {
+                        jsonLD['@graph'].forEach(extractLocationFromSchema);
+                    } else {
+                        extractLocationFromSchema(jsonLD);
+                    }
+                } catch (e) {
+                    // Ignore invalid JSON
+                }
+            });
+
+            // Extract awards and certifications
+            const awards: string[] = [];
+            const awardSelectors = ['.award', '.certification', '.accreditation', '.recognition'];
+            awardSelectors.forEach(selector => {
+                $(selector).each((_, element) => {
+                    const awardText = $(element).text().trim();
+                    if (awardText && awardText.length > 5 && awardText.length < 100) {
+                        awards.push(awardText);
+                    }
+                });
+            });
+
             return {
                 h1: h1 || undefined,
                 title: title || undefined,
@@ -421,7 +503,11 @@ const fetchPageContentTool = ai.defineTool(
                 socialLinks: socialLinks.length > 0 ? socialLinks : undefined,
                 reviews: Object.keys(reviews).length > 0 ? reviews : undefined,
                 metaDescription: metaDescription || undefined,
-                keywords: keywords || undefined
+                keywords: keywords || undefined,
+                priceRange: priceRange || undefined,
+                businessType: businessType || undefined,
+                location: Object.keys(location).length > 0 ? location : undefined,
+                awards: awards.length > 0 ? awards : undefined
             };
         } catch (error) {
             console.error('Error fetching page content:', error);
@@ -451,22 +537,23 @@ const generateSchemaFromUrlFlow = ai.defineFlow(
         
         2. **Create Comprehensive Schema Structure**: Build a schema with the following structure:
            - Root @type: "WebPage" with the page URL
-           - mainEntity: Primary business/organization information
+           - mainEntity: Primary business/organization information with correct @type
            - Include FAQ schema if questions/answers are found
            - Add Organization schema with complete details
            - Include breadcrumbs if applicable
            - Add ImageObject schema for important images
 
         3. **Essential Local SEO Elements**:
-           - Complete address with PostalAddress schema
-           - Contact information (telephone, email)
-           - Business hours if available (openingHoursSpecification)
-           - Service area (areaServed)
+           - Complete address with PostalAddress schema (validate all fields are present)
+           - Contact information (telephone, email) - ensure proper formatting
+           - Business hours if available (openingHoursSpecification with proper format)
+           - Service area (areaServed) 
            - Services offered (makesOffer with proper Offer/Service structure)
            - Social media profiles (sameAs)
-           - Reviews and ratings (aggregateRating)
+           - Reviews and ratings (aggregateRating) - validate rating is between 1-5
            - Geographic coordinates if extractable (geo with GeoCoordinates)
            - Images with proper ImageObject schema
+           - Price range information if available
 
         4. **FAQ Schema Integration**:
            - If FAQs are found, create proper Question/Answer schema
@@ -479,24 +566,40 @@ const generateSchemaFromUrlFlow = ai.defineFlow(
            - Include image URLs, alt text, and descriptions
            - Focus on business-relevant images (logos, products, facilities)
 
-        6. **Business Type Detection**: Choose the most appropriate @type from:
+        6. **Business Type Detection**: Choose the most appropriate @type from the detected businessType or use:
            [LocalBusiness, Restaurant, ProfessionalService, LegalService, MedicalBusiness, 
            HomeAndConstructionBusiness, AutomotiveBusiness, Organization]
 
         7. **Voice Search Optimization**:
            - Conversational descriptions (20-30 words)
            - Include natural language patterns
-           - Add speakable content selectors
            - Optimize for "near me" searches with location data
+           - DO NOT include speakable schema - this should be excluded
 
-        8. **Schema Quality**:
+        8. **Schema Quality and Validation**:
            - Remove any null, undefined, or empty values
-           - Ensure all required properties are present
+           - Ensure all required properties are present for the chosen @type
            - Use proper schema.org types and properties
            - Include relevant structured data for rich snippets
            - Validate that all URLs are absolute and properly formatted
+           - Validate address has all required fields (streetAddress, addressLocality, addressRegion)
+           - Validate phone numbers are in proper format
+           - Validate price range uses proper symbols ($, $$, $$$, $$$$)
+           - Validate coordinates are valid numbers if present
+           - Validate rating values are between 1 and 5
 
-        Return a complete, valid JSON-LD schema object that maximizes local SEO potential and voice search visibility.
+        9. **Enhanced Data Collection**:
+           - Collect all business information exactly as found
+           - Include awards and certifications if found
+           - Include all social media profiles
+           - Include all services offered
+           - Include complete business hours
+           - Include price range information
+           - Include location coordinates if available
+
+        IMPORTANT: Do NOT include any speakable schema elements. Focus on collecting all other information comprehensively and accurately.
+
+        Return a complete, valid JSON-LD schema object that maximizes local SEO potential and voice search visibility without speakable elements.
       `,
     });
     
