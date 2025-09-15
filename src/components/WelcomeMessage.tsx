@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Wand2, Sparkles, Bot } from 'lucide-react';
+import { Wand2, Sparkles, Bot, MapPin, DollarSign, Zap } from 'lucide-react';
 
 interface WelcomeMessageProps {
   isVisible: boolean;
@@ -21,7 +21,7 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({ isVisible, onClose }) =
       transition={{ duration: 0.5 }}
     >
       <motion.div
-        className="relative bg-gradient-to-br from-primary/10 via-accent/10 to-primary/10 backdrop-blur-xl border border-primary/20 rounded-2xl p-8 max-w-md w-full shadow-2xl"
+        className="relative bg-gradient-to-br from-primary/10 via-accent/10 to-primary/10 backdrop-blur-xl border border-primary/20 rounded-2xl p-8 max-w-lg w-full shadow-2xl"
         initial={{ scale: 0.5, y: 50 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.5, y: 50 }}
@@ -61,17 +61,37 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({ isVisible, onClose }) =
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
           >
-            Generate powerful <span className="text-primary font-semibold">JSON-LD schema markup</span> optimized for voice search and local SEO. Let AI extract comprehensive data from any URL!
+            Generate powerful <span className="text-primary font-semibold">JSON-LD schema markup</span> with intelligent AI extraction, smart address detection, and city-based price estimation!
           </motion.p>
+
+          <motion.div
+            className="grid grid-cols-1 gap-3 mb-6 text-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8 }}
+          >
+            <div className="flex items-center gap-3 bg-primary/5 rounded-lg p-3">
+              <MapPin size={16} className="text-primary" />
+              <span><strong>Smart Address Detection:</strong> Auto-extracts postal codes from any region</span>
+            </div>
+            <div className="flex items-center gap-3 bg-accent/5 rounded-lg p-3">
+              <DollarSign size={16} className="text-accent" />
+              <span><strong>City-Based Pricing:</strong> Intelligent price range estimation by location</span>
+            </div>
+            <div className="flex items-center gap-3 bg-primary/5 rounded-lg p-3">
+              <Zap size={16} className="text-primary" />
+              <span><strong>Enhanced AI:</strong> Better business data extraction and validation</span>
+            </div>
+          </motion.div>
 
           <motion.div
             className="flex items-center justify-center gap-2 text-accent/80 mb-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
+            transition={{ delay: 1 }}
           >
             <Bot size={16} />
-            <span className="text-sm">AI-Powered • Voice-Optimized • SEO-Ready</span>
+            <span className="text-sm">AI-Powered • Address-Smart • Price-Intelligent • SEO-Ready</span>
           </motion.div>
 
           <motion.button
@@ -79,7 +99,7 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({ isVisible, onClose }) =
             onClick={onClose}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1 }}
+            transition={{ delay: 1.2 }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -93,7 +113,7 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({ isVisible, onClose }) =
           animate={{ y: [-5, 5, -5], rotate: [0, 10, 0] }}
           transition={{ duration: 3, repeat: Infinity }}
         >
-          <Sparkles size={24} />
+          <MapPin size={24} />
         </motion.div>
         
         <motion.div
@@ -101,7 +121,15 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({ isVisible, onClose }) =
           animate={{ y: [5, -5, 5], rotate: [10, 0, 10] }}
           transition={{ duration: 2.5, repeat: Infinity }}
         >
-          <Bot size={20} />
+          <DollarSign size={20} />
+        </motion.div>
+
+        <motion.div
+          className="absolute top-1/2 left-4 text-primary/10"
+          animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
+          transition={{ duration: 4, repeat: Infinity }}
+        >
+          <Zap size={18} />
         </motion.div>
       </motion.div>
     </motion.div>
