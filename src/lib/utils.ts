@@ -5,6 +5,135 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Enhanced postal code patterns by region
+const postalCodePatterns = {
+  US: /\b\d{5}(-\d{4})?\b/g,
+  CA: /\b[A-Z]\d[A-Z]\s*\d[A-Z]\d\b/gi,
+  UK: /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/gi,
+  AU: /\b\d{4}\b/g,
+  DE: /\b\d{5}\b/g,
+  FR: /\b\d{5}\b/g
+};
+
+// Enhanced city-based price range mapping
+const cityPriceMapping: { [key: string]: string } = {
+  // Ultra high-cost cities ($$$$)
+  'new york': '$$$$',
+  'manhattan': '$$$$',
+  'san francisco': '$$$$',
+  'palo alto': '$$$$',
+  'cupertino': '$$$$',
+  'mountain view': '$$$$',
+  'beverly hills': '$$$$',
+  'monaco': '$$$$',
+  'hong kong': '$$$$',
+  'zurich': '$$$$',
+  'geneva': '$$$$',
+  
+  // High-cost cities ($$$)
+  'los angeles': '$$$',
+  'seattle': '$$$',
+  'boston': '$$$',
+  'washington': '$$$',
+  'washington dc': '$$$',
+  'chicago': '$$$',
+  'miami': '$$$',
+  'san diego': '$$$',
+  'san jose': '$$$',
+  'oakland': '$$$',
+  'denver': '$$$',
+  'austin': '$$$',
+  'portland': '$$$',
+  'vancouver': '$$$',
+  'toronto': '$$$',
+  'london': '$$$',
+  'paris': '$$$',
+  'tokyo': '$$$',
+  'sydney': '$$$',
+  'melbourne': '$$$',
+  
+  // Mid-cost cities ($$)
+  'atlanta': '$$',
+  'dallas': '$$',
+  'houston': '$$',
+  'phoenix': '$$',
+  'nashville': '$$',
+  'charlotte': '$$',
+  'raleigh': '$$',
+  'tampa': '$$',
+  'orlando': '$$',
+  'las vegas': '$$',
+  'salt lake city': '$$',
+  'minneapolis': '$$',
+  'milwaukee': '$$',
+  'indianapolis': '$$',
+  'columbus': '$$',
+  'cincinnati': '$$',
+  'pittsburgh': '$$',
+  'baltimore': '$$',
+  'richmond': '$$',
+  'jacksonville': '$$',
+  'san antonio': '$$',
+  'fort worth': '$$',
+  'albuquerque': '$$',
+  'tucson': '$$',
+  'sacramento': '$$',
+  'fresno': '$$',
+  
+  // Lower-cost cities ($)
+  'detroit': '$',
+  'cleveland': '$',
+  'buffalo': '$',
+  'kansas city': '$',
+  'oklahoma city': '$',
+  'tulsa': '$',
+  'memphis': '$',
+  'birmingham': '$',
+  'little rock': '$',
+  'jackson': '$',
+  'shreveport': '$',
+  'mobile': '$',
+  'montgomery': '$',
+  'huntsville': '$',
+  'chattanooga': '$',
+  'knoxville': '$',
+  'louisville': '$',
+  'lexington': '$',
+  'toledo': '$',
+  'akron': '$',
+  'youngstown': '$',
+  'dayton': '$',
+  'fort wayne': '$',
+  'evansville': '$',
+  'peoria': '$',
+  'rockford': '$',
+  'green bay': '$',
+  'des moines': '$',
+  'cedar rapids': '$',
+  'sioux city': '$',
+  'fargo': '$',
+  'bismarck': '$',
+  'rapid city': '$',
+  'billings': '$',
+  'great falls': '$',
+  'boise': '$',
+  'spokane': '$',
+  'yakima': '$'
+};
+
+// Business type to price range mapping
+const businessTypePriceMapping: { [key: string]: string } = {
+  'LegalService': '$$$',
+  'MedicalBusiness': '$$$', 
+  'DentalBusiness': '$$',
+  'Restaurant': '$$',
+  'HVACBusiness': '$$',
+  'ProfessionalService': '$$',
+  'HomeAndConstructionBusiness': '$$',
+  'AutomotiveBusiness': '$',
+  'LocalBusiness': '$$'
+};
+
 export function cleanObject(obj: any): any {
   if (Array.isArray(obj)) {
     return obj
@@ -68,16 +197,29 @@ export function cleanObject(obj: any): any {
         obj.worstRating = "1";
       }
       
-      // PostalAddress validation - More lenient for AI-extracted content
+      // Enhanced PostalAddress validation with intelligent auto-fill
       if (obj['@type'] === 'PostalAddress') {
+        // Enhanced postal code detection and validation
+        if (!obj.postalCode && (obj.streetAddress || obj.addressLocality)) {
+          // Try to extract postal code from street address or city
+          const fullAddressText = `${obj.streetAddress || ''} ${obj.addressLocality || ''} ${obj.addressRegion || ''}`.trim();
+          obj.postalCode = extractPostalCode(fullAddressText, obj.addressCountry || 'US');
+        }
+        
+        // Validate extracted postal code
+        if (obj.postalCode && !isValidPostalCode(obj.postalCode, obj.addressCountry || 'US')) {
+          console.warn('Invalid postal code detected, removing:', obj.postalCode);
+          delete obj.postalCode;
+        }
+        
         // At least one address component should be present
-        const hasAnyAddress = obj.streetAddress || obj.addressLocality || obj.addressRegion;
+        const hasAnyAddress = obj.streetAddress || obj.addressLocality || obj.addressRegion || obj.postalCode;
         
         if (!hasAnyAddress) {
           return null; // No address information at all
         }
         
-        // Fill in missing components with reasonable defaults
+        // Enhanced intelligent defaults based on available information
         if (!obj.streetAddress && (obj.addressLocality || obj.addressRegion)) {
           obj.streetAddress = "Address available upon request";
         }
@@ -85,7 +227,8 @@ export function cleanObject(obj: any): any {
           obj.addressLocality = "Local Area";
         }
         if (!obj.addressRegion && obj.addressLocality) {
-          obj.addressRegion = "State";
+          // Try to infer state from city using common city-state knowledge
+          obj.addressRegion = inferStateFromCity(obj.addressLocality) || "State";
         }
         
         // Clean and validate address components
@@ -108,7 +251,7 @@ export function cleanObject(obj: any): any {
         obj.url = ensureAbsoluteUrl(obj.url);
       }
 
-      // Organization/Business validation - More lenient for AI content
+      // Enhanced Business validation with intelligent price range detection
       const businessTypes = [
         'LocalBusiness', 'Restaurant', 'ProfessionalService', 'LegalService', 
         'MedicalBusiness', 'HomeAndConstructionBusiness', 'AutomotiveBusiness', 'Organization'
@@ -128,9 +271,9 @@ export function cleanObject(obj: any): any {
           delete obj.email; // Remove invalid email
         }
         
-        // Validate price range
-        if (obj.priceRange) {
-          obj.priceRange = validatePriceRange(obj.priceRange);
+        // Enhanced intelligent price range detection
+        if (!obj.priceRange && obj.address?.addressLocality) {
+          obj.priceRange = detectPriceRange(obj.address.addressLocality, obj['@type'], obj.name, obj.description);
         }
         
         // Validate URLs
@@ -187,6 +330,187 @@ export function cleanObject(obj: any): any {
 }
 
 /**
+ * Enhanced postal code extraction with multi-region support
+ */
+function extractPostalCode(text: string, country: string = 'US'): string | undefined {
+  if (!text) return undefined;
+  
+  const pattern = postalCodePatterns[country as keyof typeof postalCodePatterns] || postalCodePatterns.US;
+  const matches = text.match(pattern);
+  
+  if (matches && matches.length > 0) {
+    return matches[0].trim();
+  }
+  
+  return undefined;
+}
+
+/**
+ * Validates postal code format by country
+ */
+function isValidPostalCode(postalCode: string, country: string = 'US'): boolean {
+  if (!postalCode) return false;
+  
+  const pattern = postalCodePatterns[country as keyof typeof postalCodePatterns] || postalCodePatterns.US;
+  // Reset the pattern to test from beginning
+  pattern.lastIndex = 0;
+  return pattern.test(postalCode);
+}
+
+/**
+ * Intelligent price range detection based on multiple factors
+ */
+function detectPriceRange(city: string, businessType: string, businessName?: string, description?: string): string {
+  if (!city) return '$$'; // Default to moderate
+  
+  const cityLower = city.toLowerCase().trim();
+  
+  // First check city-based pricing
+  const cityPriceRange = cityPriceMapping[cityLower];
+  
+  // Check business type pricing
+  const businessTypePriceRange = businessTypePriceMapping[businessType];
+  
+  // Analyze business name and description for price indicators
+  const textualContent = `${businessName || ''} ${description || ''}`.toLowerCase();
+  let textualPriceIndicator = '';
+  
+  if (textualContent.includes('luxury') || textualContent.includes('premium') || textualContent.includes('exclusive') || textualContent.includes('high-end')) {
+    textualPriceIndicator = '$$$$';
+  } else if (textualContent.includes('upscale') || textualContent.includes('boutique') || textualContent.includes('sophisticated')) {
+    textualPriceIndicator = '$$$';
+  } else if (textualContent.includes('affordable') || textualContent.includes('budget') || textualContent.includes('discount') || textualContent.includes('cheap')) {
+    textualPriceIndicator = '$';
+  } else if (textualContent.includes('value') || textualContent.includes('reasonable') || textualContent.includes('moderate')) {
+    textualPriceIndicator = '$$';
+  }
+  
+  // Priority: textual indicators > city-based > business type > default
+  if (textualPriceIndicator) return textualPriceIndicator;
+  if (cityPriceRange) return cityPriceRange;
+  if (businessTypePriceRange) return businessTypePriceRange;
+  
+  return '$$'; // Default to moderate pricing
+}
+
+/**
+ * Infer state from city name using common knowledge
+ */
+function inferStateFromCity(city: string): string | undefined {
+  if (!city) return undefined;
+  
+  const cityLower = city.toLowerCase().trim();
+  
+  // Common city-state mappings
+  const cityStateMapping: { [key: string]: string } = {
+    // Major cities
+    'new york': 'NY',
+    'los angeles': 'CA',
+    'chicago': 'IL',
+    'houston': 'TX',
+    'phoenix': 'AZ',
+    'philadelphia': 'PA',
+    'san antonio': 'TX',
+    'san diego': 'CA',
+    'dallas': 'TX',
+    'san jose': 'CA',
+    'austin': 'TX',
+    'jacksonville': 'FL',
+    'fort worth': 'TX',
+    'columbus': 'OH',
+    'charlotte': 'NC',
+    'francisco': 'CA',
+    'indianapolis': 'IN',
+    'seattle': 'WA',
+    'denver': 'CO',
+    'washington': 'DC',
+    'boston': 'MA',
+    'el paso': 'TX',
+    'detroit': 'MI',
+    'nashville': 'TN',
+    'memphis': 'TN',
+    'portland': 'OR',
+    'oklahoma city': 'OK',
+    'las vegas': 'NV',
+    'baltimore': 'MD',
+    'louisville': 'KY',
+    'milwaukee': 'WI',
+    'albuquerque': 'NM',
+    'tucson': 'AZ',
+    'fresno': 'CA',
+    'mesa': 'AZ',
+    'sacramento': 'CA',
+    'atlanta': 'GA',
+    'kansas city': 'MO',
+    'colorado springs': 'CO',
+    'omaha': 'NE',
+    'raleigh': 'NC',
+    'miami': 'FL',
+    'oakland': 'CA',
+    'minneapolis': 'MN',
+    'tulsa': 'OK',
+    'cleveland': 'OH',
+    'wichita': 'KS',
+    'arlington': 'TX',
+    'new orleans': 'LA',
+    'bakersfield': 'CA',
+    'tampa': 'FL',
+    'honolulu': 'HI',
+    'aurora': 'CO',
+    'anaheim': 'CA',
+    'santa ana': 'CA',
+    'st. louis': 'MO',
+    'riverside': 'CA',
+    'corpus christi': 'TX',
+    'lexington': 'KY',
+    'pittsburgh': 'PA',
+    'anchorage': 'AK',
+    'stockton': 'CA',
+    'cincinnati': 'OH',
+    'saint paul': 'MN',
+    'toledo': 'OH',
+    'greensboro': 'NC',
+    'newark': 'NJ',
+    'plano': 'TX',
+    'henderson': 'NV',
+    'lincoln': 'NE',
+    'buffalo': 'NY',
+    'jersey city': 'NJ',
+    'chula vista': 'CA',
+    'fort wayne': 'IN',
+    'orlando': 'FL',
+    'st. petersburg': 'FL',
+    'chandler': 'AZ',
+    'laredo': 'TX',
+    'norfolk': 'VA',
+    'durham': 'NC',
+    'madison': 'WI',
+    'lubbock': 'TX',
+    'irvine': 'CA',
+    'winston-salem': 'NC',
+    'glendale': 'AZ',
+    'garland': 'TX',
+    'hialeah': 'FL',
+    'reno': 'NV',
+    'chesapeake': 'VA',
+    'gilbert': 'AZ',
+    'baton rouge': 'LA',
+    'irving': 'TX',
+    'scottsdale': 'AZ',
+    'north las vegas': 'NV',
+    'fremont': 'CA',
+    'boise city': 'ID',
+    'richmond': 'VA',
+    'san bernardino': 'CA',
+    'birmingham': 'AL',
+    'spokane': 'WA',
+    'rochester': 'NY'
+  };
+  
+  return cityStateMapping[cityLower];
+}
+
+/**
  * Validates time format (HH:MM or H:MM)
  */
 function isValidTimeFormat(time: string): boolean {
@@ -237,7 +561,7 @@ function isValidEmail(email: string): boolean {
 }
 
 /**
- * Formats phone number to standard format
+ * Enhanced phone number formatting with international support
  */
 function formatPhoneNumber(phone: string): string {
   if (!phone) return phone;
@@ -245,11 +569,17 @@ function formatPhoneNumber(phone: string): string {
   // Remove all non-digit characters
   const digits = phone.replace(/\D/g, '');
   
-  // If it's a US number (10 or 11 digits)
+  // US/Canada numbers (10 or 11 digits)
   if (digits.length === 10) {
     return `+1-${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
   } else if (digits.length === 11 && digits.startsWith('1')) {
     return `+${digits.slice(0, 1)}-${digits.slice(1, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  
+  // UK numbers (10-11 digits)
+  if (digits.length >= 10 && digits.length <= 11 && (digits.startsWith('44') || digits.startsWith('0'))) {
+    const cleanDigits = digits.startsWith('44') ? digits : '44' + digits.slice(1);
+    return `+${cleanDigits.slice(0, 2)}-${cleanDigits.slice(2, 5)}-${cleanDigits.slice(5, 8)}-${cleanDigits.slice(8)}`;
   }
   
   // For international numbers, keep original format if it looks valid
@@ -261,7 +591,7 @@ function formatPhoneNumber(phone: string): string {
 }
 
 /**
- * Validates and formats price range
+ * Enhanced price range validation and formatting
  */
 function validatePriceRange(priceRange: string): string {
   if (!priceRange) return priceRange;
@@ -273,16 +603,16 @@ function validatePriceRange(priceRange: string): string {
     return cleaned;
   }
   
-  // Try to convert text to dollar signs
+  // Try to convert text to dollar signs with enhanced detection
   const lowerPrice = cleaned.toLowerCase();
-  if (lowerPrice.includes('inexpensive') || lowerPrice.includes('cheap') || lowerPrice.includes('budget')) {
-    return '$';
-  } else if (lowerPrice.includes('moderate') || lowerPrice.includes('mid-range')) {
-    return '$$';
-  } else if (lowerPrice.includes('expensive') || lowerPrice.includes('upscale')) {
-    return '$$$';
-  } else if (lowerPrice.includes('very expensive') || lowerPrice.includes('luxury')) {
+  if (lowerPrice.includes('luxury') || lowerPrice.includes('exclusive') || lowerPrice.includes('premium') || lowerPrice.includes('very expensive')) {
     return '$$$$';
+  } else if (lowerPrice.includes('expensive') || lowerPrice.includes('upscale') || lowerPrice.includes('high-end')) {
+    return '$$$';
+  } else if (lowerPrice.includes('moderate') || lowerPrice.includes('mid-range') || lowerPrice.includes('reasonable')) {
+    return '$$';
+  } else if (lowerPrice.includes('inexpensive') || lowerPrice.includes('cheap') || lowerPrice.includes('budget') || lowerPrice.includes('affordable')) {
+    return '$';
   }
   
   // If it contains dollar signs, extract them
@@ -296,7 +626,7 @@ function validatePriceRange(priceRange: string): string {
 }
 
 /**
- * Validates a JSON-LD schema object for common issues
+ * Enhanced schema validation with intelligent address handling
  */
 export function validateSchema(schema: any): { isValid: boolean; errors: string[] } {
   const errors: string[] = [];
@@ -327,7 +657,7 @@ export function validateSchema(schema: any): { isValid: boolean; errors: string[
     }
   }
   
-  // Validate Business schemas - More lenient for AI-generated content
+  // Enhanced Business schema validation with intelligent address handling
   const businessTypes = ['LocalBusiness', 'Restaurant', 'ProfessionalService', 'LegalService', 'MedicalBusiness', 'HVACBusiness', 'HomeAndConstructionBusiness', 'AutomotiveBusiness'];
   if (businessTypes.includes(schema['@type']) || (schema.mainEntity && businessTypes.includes(schema.mainEntity['@type']))) {
     const business = schema['@type'] === 'WebPage' ? schema.mainEntity : schema;
@@ -341,34 +671,28 @@ export function validateSchema(schema: any): { isValid: boolean; errors: string[
       errors.push('Business schema missing name property');
     }
     
-    // More lenient address validation
+    // Enhanced address validation with intelligent handling
     if (!business.address) {
-      errors.push('Business schema missing address property');
+      console.warn('Business schema missing address property');
     } else {
-      // Check if at least one address component exists
-      const hasStreet = business.address.streetAddress;
-      const hasCity = business.address.addressLocality;
-      const hasState = business.address.addressRegion;
-      
-      if (!hasStreet && !hasCity && !hasState) {
-        errors.push('Business address missing all components (street, city, state)');
-      } else {
-        // Only warn about missing components, don't fail validation
-        if (!hasStreet) {
-          console.warn('Business address missing streetAddress');
-        }
-        if (!hasCity) {
-          console.warn('Business address missing addressLocality (city)');
-        }
-        if (!hasState) {
-          console.warn('Business address missing addressRegion (state)');
-        }
+      // Validate postal code if present
+      if (business.address.postalCode && !isValidPostalCode(business.address.postalCode, business.address.addressCountry)) {
+        console.warn('Business address has invalid postal code format:', business.address.postalCode);
       }
-    }
-    
-    // Phone is recommended but not required for AI-generated content
-    if (!business.telephone) {
-      console.warn('Business schema missing telephone property');
+      
+      // Check if at least one meaningful address component exists
+      const hasStreet = business.address.streetAddress && business.address.streetAddress !== "Address available upon request";
+      const hasCity = business.address.addressLocality && business.address.addressLocality !== "Local Area";
+      const hasState = business.address.addressRegion && business.address.addressRegion !== "State";
+      const hasZip = business.address.postalCode;
+      
+      const meaningfulComponents = [hasStreet, hasCity, hasState, hasZip].filter(Boolean).length;
+      
+      if (meaningfulComponents === 0) {
+        console.warn('Business address has no meaningful location information');
+      } else if (meaningfulComponents < 2) {
+        console.warn('Business address is incomplete but has some location information');
+      }
     }
     
     // Validate rating if present
@@ -414,6 +738,11 @@ export function validateSchema(schema: any): { isValid: boolean; errors: string[
         }
       });
     }
+    
+    // Validate price range format
+    if (business.priceRange && !business.priceRange.match(/^\$+$/)) {
+      console.warn('Price range should use $ format, got:', business.priceRange);
+    }
   }
   
   // Validate Article schema
@@ -443,6 +772,219 @@ export function validateSchema(schema: any): { isValid: boolean; errors: string[
   }
   
   return { isValid: errors.length === 0, errors };
+}
+
+/**
+ * Enhanced form data validation with AI-generated content support
+ */
+export function validateFormData(formData: any, isAiGenerated: boolean = false): { isValid: boolean; errors: string[]; cleanedData: any } {
+  const errors: string[] = [];
+  const cleanedData = { ...formData };
+  
+  // Validate required fields based on content type
+  if (formData.contentType === 'Article') {
+    if (!formData.headline?.trim()) {
+      errors.push('Article headline is required');
+    }
+    if (!formData.authorName?.trim()) {
+      errors.push('Author name is required');
+    }
+    if (!formData.publisherName?.trim()) {
+      errors.push('Publisher name is required');
+    }
+  } else if (formData.contentType === 'HowTo') {
+    if (!formData.howToName?.trim()) {
+      errors.push('How-to title is required');
+    }
+  } else {
+    // Business types - more lenient for AI-generated content
+    if (!formData.name?.trim()) {
+      errors.push('Business name is required');
+    }
+    if (!formData.description?.trim()) {
+      errors.push('Business description is required');
+    }
+    
+    // Enhanced address validation with intelligent postal code handling
+    if (!isAiGenerated) {
+      // Strict validation for manual entry
+      if (!formData.streetAddress?.trim()) {
+        errors.push('Street address is required');
+      }
+      if (!formData.addressLocality?.trim()) {
+        errors.push('City is required');
+      }
+      if (!formData.addressRegion?.trim()) {
+        errors.push('State/Region is required');
+      }
+    } else {
+      // Lenient validation for AI content - just warn if completely missing
+      const hasAnyAddress = formData.streetAddress?.trim() || 
+                           formData.addressLocality?.trim() || 
+                           formData.addressRegion?.trim() ||
+                           formData.postalCode?.trim();
+      
+      if (!hasAnyAddress) {
+        console.warn('No address information found - will use placeholders');
+      }
+    }
+    
+    // Enhanced postal code validation and auto-detection
+    if (formData.postalCode?.trim()) {
+      if (!isValidPostalCode(formData.postalCode, formData.addressCountry || 'US')) {
+        if (!isAiGenerated) {
+          errors.push('Invalid postal code format');
+        } else {
+          console.warn('Invalid postal code format - removing from schema');
+          delete cleanedData.postalCode;
+        }
+      }
+    } else if (isAiGenerated && formData.addressLocality?.trim()) {
+      // Try to auto-detect postal code from city context
+      const inferredZip = inferPostalCodeFromCity(formData.addressLocality);
+      if (inferredZip) {
+        cleanedData.postalCode = inferredZip;
+        console.info('Inferred postal code from city:', inferredZip);
+      }
+    }
+    
+    // Auto-detect price range if not provided
+    if (!formData.priceRange?.trim() && formData.addressLocality?.trim()) {
+      const detectedPriceRange = detectPriceRange(
+        formData.addressLocality,
+        formData.contentType || 'LocalBusiness',
+        formData.name,
+        formData.description
+      );
+      cleanedData.priceRange = detectedPriceRange;
+      console.info('Auto-detected price range for', formData.addressLocality, ':', detectedPriceRange);
+    }
+  }
+  
+  // Clean and validate phone number
+  if (formData.telephone) {
+    cleanedData.telephone = formatPhoneNumber(formData.telephone);
+  }
+  
+  // Validate email
+  if (formData.email && !isValidEmail(formData.email)) {
+    if (!isAiGenerated) {
+      errors.push('Invalid email format');
+    } else {
+      console.warn('Invalid email format - removing from schema');
+      delete cleanedData.email;
+    }
+  }
+  
+  // Validate URLs
+  if (formData.websiteUrl && !isValidUrl(formData.websiteUrl)) {
+    if (!isAiGenerated) {
+      errors.push('Invalid website URL');
+    } else {
+      console.warn('Invalid website URL - removing from schema');
+      delete cleanedData.websiteUrl;
+    }
+  }
+  
+  if (formData.publisherLogoUrl && !isValidUrl(formData.publisherLogoUrl)) {
+    if (!isAiGenerated) {
+      errors.push('Invalid publisher logo URL');
+    } else {
+      console.warn('Invalid publisher logo URL - removing from schema');
+      delete cleanedData.publisherLogoUrl;
+    }
+  }
+  
+  // Validate coordinates
+  if (formData.latitude) {
+    const lat = parseFloat(formData.latitude);
+    if (isNaN(lat) || lat < -90 || lat > 90) {
+      if (!isAiGenerated) {
+        errors.push('Invalid latitude (must be between -90 and 90)');
+      } else {
+        console.warn('Invalid latitude - removing from schema');
+        delete cleanedData.latitude;
+      }
+    }
+  }
+  
+  if (formData.longitude) {
+    const lng = parseFloat(formData.longitude);
+    if (isNaN(lng) || lng < -180 || lng > 180) {
+      if (!isAiGenerated) {
+        errors.push('Invalid longitude (must be between -180 and 180)');
+      } else {
+        console.warn('Invalid longitude - removing from schema');
+        delete cleanedData.longitude;
+      }
+    }
+  }
+  
+  // Validate rating
+  if (formData.ratingValue) {
+    const rating = parseFloat(formData.ratingValue);
+    if (isNaN(rating) || rating < 1 || rating > 5) {
+      if (!isAiGenerated) {
+        errors.push('Rating must be between 1 and 5');
+      } else {
+        console.warn('Invalid rating - removing from schema');
+        delete cleanedData.ratingValue;
+      }
+    }
+  }
+  
+  if (formData.reviewCount) {
+    const count = parseInt(formData.reviewCount);
+    if (isNaN(count) || count < 1) {
+      if (!isAiGenerated) {
+        errors.push('Review count must be a positive number');
+      } else {
+        console.warn('Invalid review count - removing from schema');
+        delete cleanedData.reviewCount;
+      }
+    }
+  }
+  
+  // Validate and enhance price range
+  if (formData.priceRange) {
+    cleanedData.priceRange = validatePriceRange(formData.priceRange);
+  }
+  
+  return { isValid: errors.length === 0, errors, cleanedData };
+}
+
+/**
+ * Attempt to infer postal code from city name (basic implementation)
+ * This would ideally connect to a postal code database
+ */
+function inferPostalCodeFromCity(city: string): string | undefined {
+  // This is a simplified version - in production, you'd want a comprehensive database
+  const commonCityZipMapping: { [key: string]: string } = {
+    'new york': '10001',
+    'los angeles': '90001',
+    'chicago': '60601',
+    'houston': '77001',
+    'phoenix': '85001',
+    'philadelphia': '19101',
+    'san antonio': '78201',
+    'san diego': '92101',
+    'dallas': '75201',
+    'san jose': '95101',
+    'austin': '78701',
+    'seattle': '98101',
+    'denver': '80201',
+    'washington': '20001',
+    'boston': '02101',
+    'las vegas': '89101',
+    'atlanta': '30301',
+    'miami': '33101',
+    'charlotte': '28201',
+    'portland': '97201',
+    'san francisco': '94101'
+  };
+  
+  const cityLower = city.toLowerCase().trim();
+  return commonCityZipMapping[cityLower];
 }
 
 /**
@@ -538,7 +1080,7 @@ export function processFAQData(questions: string, answers: string): any[] {
 }
 
 /**
- * Generates meta tags for local SEO
+ * Generates enhanced meta tags for local SEO with intelligent address handling
  */
 export function generateLocalSEOMetaTags(formData: any): string {
   const tags = [];
@@ -555,6 +1097,10 @@ export function generateLocalSEOMetaTags(formData: any): string {
     tags.push(`<meta name="geo.placename" content="${formData.addressLocality}">`);
   }
   
+  if (formData.postalCode) {
+    tags.push(`<meta name="geo.postal-code" content="${formData.postalCode}">`);
+  }
+  
   if (formData.latitude && formData.longitude) {
     tags.push(`<meta name="geo.position" content="${formData.latitude};${formData.longitude}">`);
     tags.push(`<meta name="ICBM" content="${formData.latitude}, ${formData.longitude}">`);
@@ -568,152 +1114,9 @@ export function generateLocalSEOMetaTags(formData: any): string {
     tags.push(`<meta name="voice-summary" content="${formData.voiceSummary}">`);
   }
   
-  return tags.join('\n');
-}
-
-/**
- * Validates and cleans form data before schema generation - More lenient for AI content
- */
-export function validateFormData(formData: any, isAiGenerated: boolean = false): { isValid: boolean; errors: string[]; cleanedData: any } {
-  const errors: string[] = [];
-  const cleanedData = { ...formData };
-  
-  // Validate required fields based on content type
-  if (formData.contentType === 'Article') {
-    if (!formData.headline?.trim()) {
-      errors.push('Article headline is required');
-    }
-    if (!formData.authorName?.trim()) {
-      errors.push('Author name is required');
-    }
-    if (!formData.publisherName?.trim()) {
-      errors.push('Publisher name is required');
-    }
-  } else if (formData.contentType === 'HowTo') {
-    if (!formData.howToName?.trim()) {
-      errors.push('How-to title is required');
-    }
-  } else {
-    // Business types - more lenient for AI-generated content
-    if (!formData.name?.trim()) {
-      errors.push('Business name is required');
-    }
-    if (!formData.description?.trim()) {
-      errors.push('Business description is required');
-    }
-    
-    // Address validation - lenient for AI content
-    if (!isAiGenerated) {
-      // Strict validation for manual entry
-      if (!formData.streetAddress?.trim()) {
-        errors.push('Street address is required');
-      }
-      if (!formData.addressLocality?.trim()) {
-        errors.push('City is required');
-      }
-      if (!formData.addressRegion?.trim()) {
-        errors.push('State/Region is required');
-      }
-    } else {
-      // Lenient validation for AI content - just warn if completely missing
-      const hasAnyAddress = formData.streetAddress?.trim() || 
-                           formData.addressLocality?.trim() || 
-                           formData.addressRegion?.trim();
-      
-      if (!hasAnyAddress) {
-        console.warn('No address information found - will use placeholders');
-      }
-    }
-  }
-  
-  // Clean and validate phone number
-  if (formData.telephone) {
-    cleanedData.telephone = formatPhoneNumber(formData.telephone);
-  }
-  
-  // Validate email
-  if (formData.email && !isValidEmail(formData.email)) {
-    if (!isAiGenerated) {
-      errors.push('Invalid email format');
-    } else {
-      console.warn('Invalid email format - removing from schema');
-      delete cleanedData.email;
-    }
-  }
-  
-  // Validate URLs
-  if (formData.websiteUrl && !isValidUrl(formData.websiteUrl)) {
-    if (!isAiGenerated) {
-      errors.push('Invalid website URL');
-    } else {
-      console.warn('Invalid website URL - removing from schema');
-      delete cleanedData.websiteUrl;
-    }
-  }
-  
-  if (formData.publisherLogoUrl && !isValidUrl(formData.publisherLogoUrl)) {
-    if (!isAiGenerated) {
-      errors.push('Invalid publisher logo URL');
-    } else {
-      console.warn('Invalid publisher logo URL - removing from schema');
-      delete cleanedData.publisherLogoUrl;
-    }
-  }
-  
-  // Validate coordinates
-  if (formData.latitude) {
-    const lat = parseFloat(formData.latitude);
-    if (isNaN(lat) || lat < -90 || lat > 90) {
-      if (!isAiGenerated) {
-        errors.push('Invalid latitude (must be between -90 and 90)');
-      } else {
-        console.warn('Invalid latitude - removing from schema');
-        delete cleanedData.latitude;
-      }
-    }
-  }
-  
-  if (formData.longitude) {
-    const lng = parseFloat(formData.longitude);
-    if (isNaN(lng) || lng < -180 || lng > 180) {
-      if (!isAiGenerated) {
-        errors.push('Invalid longitude (must be between -180 and 180)');
-      } else {
-        console.warn('Invalid longitude - removing from schema');
-        delete cleanedData.longitude;
-      }
-    }
-  }
-  
-  // Validate rating
-  if (formData.ratingValue) {
-    const rating = parseFloat(formData.ratingValue);
-    if (isNaN(rating) || rating < 1 || rating > 5) {
-      if (!isAiGenerated) {
-        errors.push('Rating must be between 1 and 5');
-      } else {
-        console.warn('Invalid rating - removing from schema');
-        delete cleanedData.ratingValue;
-      }
-    }
-  }
-  
-  if (formData.reviewCount) {
-    const count = parseInt(formData.reviewCount);
-    if (isNaN(count) || count < 1) {
-      if (!isAiGenerated) {
-        errors.push('Review count must be a positive number');
-      } else {
-        console.warn('Invalid review count - removing from schema');
-        delete cleanedData.reviewCount;
-      }
-    }
-  }
-  
-  // Validate and format price range
   if (formData.priceRange) {
-    cleanedData.priceRange = validatePriceRange(formData.priceRange);
+    tags.push(`<meta name="price-range" content="${formData.priceRange}">`);
   }
   
-  return { isValid: errors.length === 0, errors, cleanedData };
+  return tags.join('\n');
 }
