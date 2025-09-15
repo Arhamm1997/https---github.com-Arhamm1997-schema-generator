@@ -1,8 +1,7 @@
 'use server';
 /**
  * @fileOverview Enhanced flow for generating comprehensive JSON-LD schema from a given URL.
- * Now includes FAQ extraction, local SEO optimizations, and better content extraction.
- * Excludes speakable schema but includes all other relevant information.
+ * Now includes enhanced footer address extraction and better handling of incomplete addresses.
  */
 
 import { ai } from '@/ai/genkit';
@@ -22,12 +21,14 @@ export type GenerateSchemaOutput = z.infer<typeof GenerateSchemaOutputSchema>;
 const fetchPageContentTool = ai.defineTool(
     {
         name: 'fetchPageContent',
-        description: 'Fetches the HTML content of a given URL and extracts comprehensive content including FAQs, contact info, business details, and images. Does not include speakable content.',
+        description: 'Fetches the HTML content of a given URL and extracts comprehensive content with enhanced footer address extraction.',
         inputSchema: z.object({ url: z.string().url() }),
         outputSchema: z.object({
             h1: z.string().optional().describe('The content of the first h1 tag.'),
             title: z.string().optional().describe('The page title.'),
             content: z.string().describe('The main text content of the page.'),
+            footerContent: z.string().optional().describe('Content specifically from footer sections.'),
+            headerContent: z.string().optional().describe('Content specifically from header sections.'),
             images: z.array(z.object({
                 src: z.string(),
                 alt: z.string().optional(),
@@ -40,7 +41,15 @@ const fetchPageContentTool = ai.defineTool(
             contactInfo: z.object({
                 phone: z.string().optional(),
                 email: z.string().optional(),
-                address: z.string().optional()
+                address: z.string().optional(),
+                footerAddress: z.string().optional(),
+                fullAddress: z.object({
+                    street: z.string().optional(),
+                    city: z.string().optional(),
+                    state: z.string().optional(),
+                    zip: z.string().optional(),
+                    country: z.string().optional()
+                }).optional()
             }).optional().describe('Contact information found on the page.'),
             businessHours: z.string().optional().describe('Business hours if found.'),
             services: z.array(z.string()).optional().describe('Services mentioned on the page.'),
@@ -76,14 +85,14 @@ const fetchPageContentTool = ai.defineTool(
             const html = await response.text();
             const $ = load(html);
 
-            // Enhanced title extraction with multiple fallbacks
+            // Enhanced title extraction
             const title = $('title').first().text().trim() || 
                          $('meta[property="og:title"]').attr('content') || 
                          $('meta[name="twitter:title"]').attr('content') || 
                          $('h1').first().text().trim() || 
                          '';
 
-            // Enhanced H1 extraction with fallbacks
+            // Enhanced H1 extraction
             const h1 = $('h1').first().text().trim() || 
                       $('h1').eq(1).text().trim() || 
                       $('.page-title, .entry-title, .post-title, .main-title').first().text().trim() ||
@@ -111,19 +120,58 @@ const fetchPageContentTool = ai.defineTool(
                 }
             }
 
-            // Fallback to body if no main content found
             if (!content || content.length < 100) {
                 content = $('body').text();
             }
-
-            // Clean up content
             content = content.replace(/\s\s+/g, ' ').trim();
 
-            // Extract meta description and keywords
+            // Extract footer content specifically
+            let footerContent = '';
+            const footerSelectors = [
+                'footer',
+                '.footer',
+                '#footer',
+                '.site-footer',
+                '.page-footer',
+                '.main-footer',
+                '.footer-content',
+                '.footer-section',
+                '[role="contentinfo"]'
+            ];
+
+            for (const selector of footerSelectors) {
+                const footerText = $(selector).text();
+                if (footerText && footerText.length > footerContent.length) {
+                    footerContent = footerText;
+                }
+            }
+            footerContent = footerContent.replace(/\s\s+/g, ' ').trim();
+
+            // Extract header content
+            let headerContent = '';
+            const headerSelectors = [
+                'header',
+                '.header',
+                '#header',
+                '.site-header',
+                '.page-header',
+                '.main-header',
+                '.top-header',
+                '[role="banner"]'
+            ];
+
+            for (const selector of headerSelectors) {
+                const headerText = $(selector).text();
+                if (headerText && headerText.length > headerContent.length) {
+                    headerContent = headerText;
+                }
+            }
+            headerContent = headerContent.replace(/\s\s+/g, ' ').trim();
+
+            // Extract meta information
             const metaDescription = $('meta[name="description"]').attr('content') || 
                                   $('meta[property="og:description"]').attr('content') || 
                                   '';
-            
             const keywords = $('meta[name="keywords"]').attr('content') || '';
 
             // Enhanced image extraction
@@ -135,7 +183,6 @@ const fetchPageContentTool = ai.defineTool(
                 let src = $img.attr('src') || $img.attr('data-src') || $img.attr('data-lazy-src');
                 
                 if (src) {
-                    // Convert relative URLs to absolute
                     if (src.startsWith('//')) {
                         src = baseUrl.protocol + src;
                     } else if (src.startsWith('/')) {
@@ -147,7 +194,6 @@ const fetchPageContentTool = ai.defineTool(
                     const alt = $img.attr('alt') || '';
                     const title = $img.attr('title') || '';
                     
-                    // Filter out small images (likely icons/logos)
                     const width = parseInt($img.attr('width') || '0');
                     const height = parseInt($img.attr('height') || '0');
                     
@@ -164,7 +210,6 @@ const fetchPageContentTool = ai.defineTool(
             // Enhanced FAQ extraction
             const faqs: Array<{question: string, answer: string}> = [];
             
-            // Try to extract from existing JSON-LD schema
             $('script[type="application/ld+json"]').each((_, element) => {
                 try {
                     const jsonLD = JSON.parse($(element).html() || '');
@@ -194,21 +239,14 @@ const fetchPageContentTool = ai.defineTool(
                 }
             });
 
-            // If no structured FAQs found, try to extract from HTML patterns
             if (faqs.length === 0) {
                 const faqSelectors = [
-                    '.faq',
-                    '.frequently-asked-questions', 
-                    '.questions',
-                    '.qa-section',
-                    '.accordion',
-                    '[id*="faq"]',
-                    '[class*="faq"]'
+                    '.faq', '.frequently-asked-questions', '.questions',
+                    '.qa-section', '.accordion', '[id*="faq"]', '[class*="faq"]'
                 ];
 
                 faqSelectors.forEach(selector => {
                     $(selector).each((_, faqSection) => {
-                        // Try different FAQ patterns
                         $(faqSection).find('details').each((_, item) => {
                             const question = $(item).find('summary').first().text().trim();
                             const answer = $(item).contents().not('summary').text().trim();
@@ -217,7 +255,6 @@ const fetchPageContentTool = ai.defineTool(
                             }
                         });
 
-                        // Try div-based FAQs
                         $(faqSection).find('.faq-item, .question, .qa-item').each((_, item) => {
                             const $item = $(item);
                             const question = $item.find('.question, .faq-question, h3, h4, .q').first().text().trim();
@@ -230,18 +267,31 @@ const fetchPageContentTool = ai.defineTool(
                 });
             }
 
-            // Enhanced contact information extraction
-            const contactInfo: {phone?: string, email?: string, address?: string} = {};
+            // Enhanced contact information extraction with footer focus
+            const contactInfo: {
+                phone?: string, 
+                email?: string, 
+                address?: string,
+                footerAddress?: string,
+                fullAddress?: {
+                    street?: string,
+                    city?: string,
+                    state?: string,
+                    zip?: string,
+                    country?: string
+                }
+            } = {};
+
+            // Combine content sources for contact extraction
+            const allContent = `${content} ${footerContent} ${headerContent}`;
             
-            // Phone numbers - enhanced regex
+            // Phone extraction
             const phoneRegex = /(?:\+?1[-.\s]?)?(?:\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}|\(?[0-9]{3}\)?[-.\s]?[0-9]{2}[-.\s]?[0-9]{2}[-.\s]?[0-9]{3})/g;
-            const phoneMatches = content.match(phoneRegex);
+            const phoneMatches = allContent.match(phoneRegex);
             if (phoneMatches && phoneMatches.length > 0) {
-                // Take the first valid phone number
                 contactInfo.phone = phoneMatches[0].trim();
             }
 
-            // Also check specific phone selectors
             const phoneSelectors = ['.phone', '.telephone', '.contact-phone', '[href^="tel:"]', '.call-us'];
             phoneSelectors.forEach(selector => {
                 if (!contactInfo.phone) {
@@ -256,11 +306,10 @@ const fetchPageContentTool = ai.defineTool(
                 }
             });
 
-            // Email addresses - enhanced extraction
+            // Email extraction
             const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
-            const emailMatches = content.match(emailRegex);
+            const emailMatches = allContent.match(emailRegex);
             if (emailMatches && emailMatches.length > 0) {
-                // Filter out common non-business emails
                 const filteredEmails = emailMatches.filter(email => 
                     !email.includes('example.com') && 
                     !email.includes('test.com') &&
@@ -271,7 +320,6 @@ const fetchPageContentTool = ai.defineTool(
                 }
             }
 
-            // Check email links
             const emailSelectors = ['[href^="mailto:"]', '.email', '.contact-email'];
             emailSelectors.forEach(selector => {
                 if (!contactInfo.email) {
@@ -286,37 +334,89 @@ const fetchPageContentTool = ai.defineTool(
                 }
             });
 
-            // Enhanced address extraction
+            // Enhanced address extraction with footer priority
             const addressSelectors = [
-                '.address', 
-                '.contact-address', 
-                '.location', 
-                '[itemtype*="PostalAddress"]', 
-                '.street-address',
-                '.postal-address',
-                '.contact-info .address',
-                '.footer .address'
+                'footer .address', 'footer .contact-address', 'footer .location',
+                '.footer .address', '.footer .contact-address', '.footer .location',
+                '.address', '.contact-address', '.location', 
+                '[itemtype*="PostalAddress"]', '.street-address',
+                '.postal-address', '.contact-info .address'
             ];
             
             for (const selector of addressSelectors) {
                 const addressText = $(selector).text().trim();
-                if (addressText && addressText.length > 10 && addressText.length < 200) {
-                    contactInfo.address = addressText;
-                    break;
+                if (addressText && addressText.length > 10 && addressText.length < 300) {
+                    if (selector.includes('footer')) {
+                        contactInfo.footerAddress = addressText;
+                        contactInfo.address = addressText; // Prefer footer address
+                        break;
+                    } else if (!contactInfo.address) {
+                        contactInfo.address = addressText;
+                    }
                 }
             }
 
-            // Extract business hours - enhanced
+            // If no structured address found, try to extract from footer content
+            if (!contactInfo.address && footerContent) {
+                // Address patterns in footer
+                const addressPatterns = [
+                    /(\d+[\w\s,.-]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|court|ct|place|pl)[\w\s,.-]*(?:\d{5}|\w{2}\s*\d{5}))/gi,
+                    /([A-Za-z\s]+,\s*[A-Z]{2}\s*\d{5})/g,
+                    /(\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Way|Court|Ct|Place|Pl))/gi
+                ];
+
+                for (const pattern of addressPatterns) {
+                    const matches = footerContent.match(pattern);
+                    if (matches && matches.length > 0) {
+                        contactInfo.footerAddress = matches[0].trim();
+                        contactInfo.address = matches[0].trim();
+                        break;
+                    }
+                }
+            }
+
+            // Parse address components if we have an address
+            if (contactInfo.address) {
+                const fullAddress: any = {};
+                const addressText = contactInfo.address;
+
+                // Extract zip code
+                const zipMatch = addressText.match(/\b\d{5}(-\d{4})?\b/);
+                if (zipMatch) {
+                    fullAddress.zip = zipMatch[0];
+                }
+
+                // Extract state (2 letter code)
+                const stateMatch = addressText.match(/\b[A-Z]{2}\b/);
+                if (stateMatch) {
+                    fullAddress.state = stateMatch[0];
+                }
+
+                // Extract city (word before state)
+                const cityMatch = addressText.match(/([A-Za-z\s]+),\s*[A-Z]{2}/);
+                if (cityMatch) {
+                    fullAddress.city = cityMatch[1].trim();
+                }
+
+                // Extract street (everything before city)
+                const streetMatch = addressText.match(/^([^,]+)/);
+                if (streetMatch) {
+                    fullAddress.street = streetMatch[1].trim();
+                }
+
+                // Default country
+                fullAddress.country = 'US';
+
+                if (Object.keys(fullAddress).length > 0) {
+                    contactInfo.fullAddress = fullAddress;
+                }
+            }
+
+            // Rest of the extraction code remains the same...
             let businessHours = '';
             const hourSelectors = [
-                '.hours', 
-                '.business-hours', 
-                '.opening-hours', 
-                '.schedule',
-                '.operating-hours',
-                '.store-hours',
-                '.office-hours',
-                '.working-hours'
+                '.hours', '.business-hours', '.opening-hours', '.schedule',
+                '.operating-hours', '.store-hours', '.office-hours', '.working-hours'
             ];
             
             for (const selector of hourSelectors) {
@@ -327,16 +427,10 @@ const fetchPageContentTool = ai.defineTool(
                 }
             }
 
-            // Extract services - enhanced
             const services: string[] = [];
             const serviceSelectors = [
-                '.service', 
-                '.services li', 
-                '.service-item',
-                '.services .item',
-                '.service-list li',
-                '.offerings li',
-                '.what-we-do li'
+                '.service', '.services li', '.service-item',
+                '.services .item', '.service-list li', '.offerings li', '.what-we-do li'
             ];
             
             serviceSelectors.forEach(selector => {
@@ -348,18 +442,10 @@ const fetchPageContentTool = ai.defineTool(
                 });
             });
 
-            // Extract social links - enhanced
             const socialLinks: string[] = [];
             const socialDomains = [
-                'facebook.com', 
-                'twitter.com', 
-                'x.com',
-                'linkedin.com', 
-                'instagram.com', 
-                'youtube.com',
-                'tiktok.com',
-                'pinterest.com',
-                'snapchat.com'
+                'facebook.com', 'twitter.com', 'x.com', 'linkedin.com', 
+                'instagram.com', 'youtube.com', 'tiktok.com', 'pinterest.com', 'snapchat.com'
             ];
             
             $('a[href]').each((_, element) => {
@@ -374,17 +460,10 @@ const fetchPageContentTool = ai.defineTool(
                 }
             });
 
-            // Extract review information - enhanced
             const reviews: {rating?: number, count?: number} = {};
-            
-            // Try different rating selectors
             const ratingSelectors = [
-                '.rating', 
-                '.stars', 
-                '.review-rating',
-                '.star-rating',
-                '[class*="rating"]',
-                '[class*="stars"]'
+                '.rating', '.stars', '.review-rating', '.star-rating',
+                '[class*="rating"]', '[class*="stars"]'
             ];
             
             ratingSelectors.forEach(selector => {
@@ -400,11 +479,8 @@ const fetchPageContentTool = ai.defineTool(
                 }
             });
             
-            // Try review count
             const reviewCountSelectors = [
-                '.review-count', 
-                '.total-reviews',
-                '.reviews-count',
+                '.review-count', '.total-reviews', '.reviews-count',
                 '[class*="review"] [class*="count"]'
             ];
             
@@ -418,7 +494,6 @@ const fetchPageContentTool = ai.defineTool(
                 }
             });
 
-            // Extract price range information
             let priceRange = '';
             const priceSelectors = ['.price-range', '.pricing', '.cost', '.price'];
             priceSelectors.forEach(selector => {
@@ -430,7 +505,6 @@ const fetchPageContentTool = ai.defineTool(
                 }
             });
 
-            // Detect business type
             let businessType = 'LocalBusiness';
             const businessTypeKeywords = {
                 'Restaurant': ['restaurant', 'cafe', 'diner', 'bistro', 'food', 'menu'],
@@ -442,7 +516,7 @@ const fetchPageContentTool = ai.defineTool(
                 'AutomotiveBusiness': ['auto', 'car', 'automotive', 'mechanic']
             };
 
-            const lowerContent = content.toLowerCase();
+            const lowerContent = allContent.toLowerCase();
             for (const [type, keywords] of Object.entries(businessTypeKeywords)) {
                 if (keywords.some(keyword => lowerContent.includes(keyword))) {
                     businessType = type;
@@ -450,7 +524,6 @@ const fetchPageContentTool = ai.defineTool(
                 }
             }
 
-            // Extract location coordinates (if available in structured data)
             const location: {latitude?: number, longitude?: number, address?: string} = {};
             $('script[type="application/ld+json"]').each((_, element) => {
                 try {
@@ -479,7 +552,6 @@ const fetchPageContentTool = ai.defineTool(
                 }
             });
 
-            // Extract awards and certifications
             const awards: string[] = [];
             const awardSelectors = ['.award', '.certification', '.accreditation', '.recognition'];
             awardSelectors.forEach(selector => {
@@ -495,11 +567,13 @@ const fetchPageContentTool = ai.defineTool(
                 h1: h1 || undefined,
                 title: title || undefined,
                 content,
-                images: images.length > 0 ? images.slice(0, 10) : undefined, // Limit to 10 images
+                footerContent: footerContent || undefined,
+                headerContent: headerContent || undefined,
+                images: images.length > 0 ? images.slice(0, 10) : undefined,
                 faqs: faqs.length > 0 ? faqs : undefined,
                 contactInfo: Object.keys(contactInfo).length > 0 ? contactInfo : undefined,
                 businessHours: businessHours || undefined,
-                services: services.length > 0 ? services.slice(0, 20) : undefined, // Limit services
+                services: services.length > 0 ? services.slice(0, 20) : undefined,
                 socialLinks: socialLinks.length > 0 ? socialLinks : undefined,
                 reviews: Object.keys(reviews).length > 0 ? reviews : undefined,
                 metaDescription: metaDescription || undefined,
@@ -535,7 +609,13 @@ const generateSchemaFromUrlFlow = ai.defineFlow(
 
         1. **Fetch Content**: Use the 'fetchPageContent' tool to get comprehensive data from the URL: ${input.url}.
         
-        2. **Create Comprehensive Schema Structure**: Build a schema with the following structure:
+        2. **Address Handling**: The tool now extracts addresses from footers and provides structured address components.
+           - Use footerAddress if available (preferred)
+           - Use fullAddress components if parsed successfully
+           - If address is incomplete, create a valid PostalAddress with available information
+           - NEVER fail schema generation due to incomplete address - use placeholders if needed
+
+        3. **Create Comprehensive Schema Structure**: Build a schema with the following structure:
            - Root @type: "WebPage" with the page URL
            - mainEntity: Primary business/organization information with correct @type
            - Include FAQ schema if questions/answers are found
@@ -543,8 +623,17 @@ const generateSchemaFromUrlFlow = ai.defineFlow(
            - Include breadcrumbs if applicable
            - Add ImageObject schema for important images
 
-        3. **Essential Local SEO Elements**:
-           - Complete address with PostalAddress schema (validate all fields are present)
+        4. **Flexible Address Validation**:
+           - If complete address found in footer, use it
+           - If partial address found, supplement with placeholders:
+             * streetAddress: Use extracted street or "Address available upon request"
+             * addressLocality: Use extracted city or "Local Area"
+             * addressRegion: Use extracted state or "State"
+             * postalCode: Use extracted zip or leave undefined
+             * addressCountry: Default to "US" or extracted country
+
+        5. **Essential Local SEO Elements**:
+           - Complete address with PostalAddress schema (using flexible validation above)
            - Contact information (telephone, email) - ensure proper formatting
            - Business hours if available (openingHoursSpecification with proper format)
            - Service area (areaServed) 
@@ -555,40 +644,41 @@ const generateSchemaFromUrlFlow = ai.defineFlow(
            - Images with proper ImageObject schema
            - Price range information if available
 
-        4. **FAQ Schema Integration**:
+        6. **FAQ Schema Integration**:
            - If FAQs are found, create proper Question/Answer schema
            - Each question should have @type: "Question"
            - Each answer should have @type: "Answer"
            - Include FAQs in mainEntity or as separate FAQPage
 
-        5. **Image Schema Integration**:
+        7. **Image Schema Integration**:
            - Add relevant images as ImageObject schema
            - Include image URLs, alt text, and descriptions
            - Focus on business-relevant images (logos, products, facilities)
 
-        6. **Business Type Detection**: Choose the most appropriate @type from the detected businessType or use:
+        8. **Business Type Detection**: Choose the most appropriate @type from the detected businessType or use:
            [LocalBusiness, Restaurant, ProfessionalService, LegalService, MedicalBusiness, 
            HomeAndConstructionBusiness, AutomotiveBusiness, Organization]
 
-        7. **Voice Search Optimization**:
+        9. **Voice Search Optimization**:
            - Conversational descriptions (20-30 words)
            - Include natural language patterns
            - Optimize for "near me" searches with location data
            - DO NOT include speakable schema - this should be excluded
 
-        8. **Schema Quality and Validation**:
+        10. **Schema Quality and Validation**:
            - Remove any null, undefined, or empty values
            - Ensure all required properties are present for the chosen @type
            - Use proper schema.org types and properties
            - Include relevant structured data for rich snippets
            - Validate that all URLs are absolute and properly formatted
-           - Validate address has all required fields (streetAddress, addressLocality, addressRegion)
+           - Create valid PostalAddress even with incomplete data
            - Validate phone numbers are in proper format
            - Validate price range uses proper symbols ($, $$, $$$, $$$$)
            - Validate coordinates are valid numbers if present
            - Validate rating values are between 1 and 5
 
-        9. **Enhanced Data Collection**:
+        11. **Enhanced Data Collection**:
+           - Prioritize footer content for contact information
            - Collect all business information exactly as found
            - Include awards and certifications if found
            - Include all social media profiles
@@ -597,7 +687,12 @@ const generateSchemaFromUrlFlow = ai.defineFlow(
            - Include price range information
            - Include location coordinates if available
 
-        IMPORTANT: Do NOT include any speakable schema elements. Focus on collecting all other information comprehensively and accurately.
+        IMPORTANT: 
+        - Do NOT include any speakable schema elements
+        - NEVER fail schema generation due to incomplete address information
+        - Use footer content as the primary source for contact details
+        - Create valid schema even with partial data by using appropriate placeholders
+        - Prioritize extracted footer address over general page content
 
         Return a complete, valid JSON-LD schema object that maximizes local SEO potential and voice search visibility without speakable elements.
       `,
