@@ -31,7 +31,7 @@ const Header = () => (
       <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent mb-3 tracking-tighter flex items-center justify-center gap-4">
         <Wand2 size={40} className="text-primary animate-float" /> Voice Schema Generator
       </h1>
-      <p className="text-lg text-muted-foreground font-medium">AI-powered schema markup for superior voice search visibility and local SEO.</p>
+      <p className="text-lg text-muted-foreground font-medium">AI-powered schema markup for superior voice search visibility and local SEO with intelligent address & pricing detection.</p>
     </div>
   </motion.header>
 );
@@ -54,7 +54,7 @@ const UrlFetchCard = ({ onSchemaGenerated }: { onSchemaGenerated: (schema: strin
             onSchemaGenerated(schemaString, name);
             toast({ 
                 title: 'Enhanced Schema Generated!', 
-                description: 'Comprehensive schema with FAQs and local SEO elements has been generated from the URL.',
+                description: 'Comprehensive schema with intelligent address & price detection has been generated from the URL.',
                 duration: 6000
             });
         } catch (error) {
@@ -84,7 +84,7 @@ const UrlFetchCard = ({ onSchemaGenerated }: { onSchemaGenerated: (schema: strin
             </CardHeader>
             <CardContent>
                 <p className="text-muted-foreground mb-4 text-sm">
-                    Enter a URL to automatically extract and generate comprehensive schema markup including FAQs, business details, and local SEO elements.
+                    Enter a URL to automatically extract and generate comprehensive schema markup with intelligent postal code detection and city-based price range estimation.
                 </p>
                 <div className="flex gap-2">
                     <Input
@@ -462,7 +462,7 @@ const BasicInfoTab = ({ formData, handleChange, handleSelectChange, images, setI
                         <FormField id="addressRegion" name="addressRegion" label="State/Region" placeholder="State" value={formData.addressRegion} onChange={handleChange}/>
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
-                        <FormField id="postalCode" name="postalCode" label="Postal Code" placeholder="12345" value={formData.postalCode} onChange={handleChange}/>
+                        <FormField id="postalCode" name="postalCode" label="Postal Code" placeholder="12345" value={formData.postalCode} onChange={handleChange} tooltip="Auto-detected from AI extraction or manually entered"/>
                         <FormField id="addressCountry" name="addressCountry" label="Country" placeholder="US" value={formData.addressCountry} onChange={handleChange}/>
                     </div>
                 </>
@@ -509,7 +509,7 @@ const LocalSeoTab = ({ formData, handleChange }: any) => {
                 <FormField id="ratingValue" name="ratingValue" label="Average Rating (1-5)" type="number" placeholder="4.8" min="1" max="5" step="0.1" value={formData.ratingValue} onChange={handleChange} icon={Star}/>
                 <FormField id="reviewCount" name="reviewCount" label="Total Reviews" type="number" placeholder="127" value={formData.reviewCount} onChange={handleChange}/>
             </div>
-            <FormField id="priceRange" name="priceRange" label="Price Range" placeholder="$$" value={formData.priceRange} onChange={handleChange} tooltip="Use $ to $$$$ format"/>
+            <FormField id="priceRange" name="priceRange" label="Price Range" placeholder="$$ (Auto-detected by city)" value={formData.priceRange} onChange={handleChange} tooltip="AI detects price range based on location and content. Use $ to $$$$ format"/>
             <FormField id="servicesOffered" name="servicesOffered" label="Services Offered" type="textarea" rows={4} placeholder="Service 1&#10;Service 2&#10;Service 3" value={formData.servicesOffered} onChange={handleChange} tooltip="List each service on a new line"/>
         </motion.div>
     );
@@ -595,12 +595,9 @@ export default function Home() {
     
     useEffect(() => {
         setIsMounted(true);
-        const hasShownWelcome = sessionStorage.getItem('hasShownWelcome');
-        if (!hasShownWelcome) {
-            setShowWelcome(true);
-            setShowWelcomeCelebration(true);
-            sessionStorage.setItem('hasShownWelcome', 'true');
-        }
+        // Show welcome message on every page refresh
+        setShowWelcome(true);
+        setShowWelcomeCelebration(true);
     }, []);
 
     const [formData, setFormData] = useLocalStorage('formData', {
@@ -650,6 +647,60 @@ export default function Home() {
         setGeneratedSchema(schema);
         setIsAiGenerated(true);
         setShowSchemaCelebration(true);
+        
+        // Parse the schema to extract useful data for the form
+        try {
+            const scriptMatch = schema.match(/<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/);
+            if (scriptMatch) {
+                const schemaObject = JSON.parse(scriptMatch[1]);
+                const mainEntity = schemaObject.mainEntity || schemaObject;
+                
+                // Auto-populate form fields from the extracted schema
+                const updateData: any = { ...formData };
+                
+                if (mainEntity.name) updateData.name = mainEntity.name;
+                if (mainEntity.description) updateData.description = mainEntity.description;
+                if (mainEntity.url) updateData.websiteUrl = mainEntity.url;
+                if (mainEntity.telephone) updateData.telephone = mainEntity.telephone;
+                if (mainEntity.email) updateData.email = mainEntity.email;
+                if (mainEntity.priceRange) updateData.priceRange = mainEntity.priceRange;
+                
+                if (mainEntity.address) {
+                    if (mainEntity.address.streetAddress) updateData.streetAddress = mainEntity.address.streetAddress;
+                    if (mainEntity.address.addressLocality) updateData.addressLocality = mainEntity.address.addressLocality;
+                    if (mainEntity.address.addressRegion) updateData.addressRegion = mainEntity.address.addressRegion;
+                    if (mainEntity.address.postalCode) updateData.postalCode = mainEntity.address.postalCode;
+                    if (mainEntity.address.addressCountry) updateData.addressCountry = mainEntity.address.addressCountry;
+                }
+                
+                if (mainEntity.geo) {
+                    if (mainEntity.geo.latitude) updateData.latitude = mainEntity.geo.latitude.toString();
+                    if (mainEntity.geo.longitude) updateData.longitude = mainEntity.geo.longitude.toString();
+                }
+                
+                if (mainEntity.aggregateRating) {
+                    if (mainEntity.aggregateRating.ratingValue) updateData.ratingValue = mainEntity.aggregateRating.ratingValue.toString();
+                    if (mainEntity.aggregateRating.reviewCount) updateData.reviewCount = mainEntity.aggregateRating.reviewCount.toString();
+                }
+                
+                setFormData(updateData);
+                
+                // Update social profiles if found
+                if (mainEntity.sameAs && Array.isArray(mainEntity.sameAs)) {
+                    setSocialProfiles(mainEntity.sameAs);
+                }
+                
+                // Update images if found
+                if (mainEntity.image && Array.isArray(mainEntity.image)) {
+                    const imageUrls = mainEntity.image.map((img: any) => typeof img === 'string' ? img : img.url).filter(Boolean);
+                    setImages(imageUrls);
+                } else if (mainEntity.logo && typeof mainEntity.logo === 'object' && mainEntity.logo.url) {
+                    setImages([mainEntity.logo.url]);
+                }
+            }
+        } catch (error) {
+            console.error('Error parsing generated schema for form population:', error);
+        }
         
         const newHistoryItem: HistoryItem = {
             id: Date.now().toString(),
@@ -780,7 +831,7 @@ export default function Home() {
         } else {
             if (!isAiGenerated) {
                 if (!cleanedFormData.streetAddress || !cleanedFormData.addressLocality || !cleanedFormData.addressRegion) {
-                    toast({ variant: 'destructive', title: 'Missing Address Information', description: 'Please provide complete address information including street, city, and state.' });
+                    toast({ variant: 'destructive', title: 'Missing Address Information', description: 'Please provide complete address information or use AI generation to auto-detect address details.' });
                     setActiveTab('local');
                     return;
                 }
@@ -946,7 +997,7 @@ export default function Home() {
         setSchemaHistory(prev => [newHistoryItem, ...prev].slice(0, 10));
 
         setShowSchemaCelebration(true);
-        toast({ title: 'Enhanced Schema Generated!', description: 'Your comprehensive schema is ready.' });
+        toast({ title: 'Enhanced Schema Generated!', description: 'Your comprehensive schema with intelligent address & price detection is ready.' });
     }, [formData, socialProfiles, images, howToSteps, toast, setSchemaHistory, generatedSchema, isAiGenerated]);
 
     const copySchema = () => {
