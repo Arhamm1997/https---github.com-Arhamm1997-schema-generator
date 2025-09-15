@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import useLocalStorage from '@/hooks/use-local-storage';
 import type { HistoryItem } from '@/lib/types';
 import { cleanObject, validateFormData, validateSchema } from '@/lib/utils';
-import { SlidersHorizontal, Code, History, Copy, Trash2, Download, CircleCheck, AlertTriangle, Wand2, Bot, Link, MapPin, Clock, Star, Image, Type, Heading1, Plus, X, User, Building, Calendar, FileText, List } from 'lucide-react';
+import { SlidersHorizontal, Code, History, Copy, Trash2, Download, CircleCheck, Wand2, Bot, Link, MapPin, Clock, Star, Image, Type, Heading1, Plus, X, User, Building, Calendar, FileText, List } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { generateSchemaFromUrl } from '@/ai/flows/generate-schema-from-url';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -269,7 +269,6 @@ const BasicInfoTab = ({ formData, handleChange, handleSelectChange, images, setI
                 </Select>
             </FormField>
 
-            {/* Content Fields Section */}
             <div className="bg-muted/20 rounded-lg p-4 mb-6">
                 <h3 className="text-sm font-semibold text-muted-foreground mb-4 flex items-center gap-2">
                     <Type className="h-4 w-4" />
@@ -475,7 +474,6 @@ const BasicInfoTab = ({ formData, handleChange, handleSelectChange, images, setI
 const LocalSeoTab = ({ formData, handleChange }: any) => {
     const contentType = formData.contentType || 'LocalBusiness';
     
-    // Only show for business types, not Article or HowTo
     if (contentType === 'Article' || contentType === 'HowTo') {
         return (
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
@@ -597,7 +595,6 @@ export default function Home() {
     
     useEffect(() => {
         setIsMounted(true);
-        // Show welcome message on page load/refresh
         const hasShownWelcome = sessionStorage.getItem('hasShownWelcome');
         if (!hasShownWelcome) {
             setShowWelcome(true);
@@ -613,7 +610,6 @@ export default function Home() {
         description: '', 
         pageTitle: '',
         pageH1: '',
-        // Article fields
         headline: '',
         authorName: '',
         authorType: 'Person',
@@ -621,10 +617,8 @@ export default function Home() {
         publisherLogoUrl: '',
         datePublished: '',
         dateModified: '',
-        // HowTo fields
         howToName: '',
         howToDescription: '',
-        // Business fields
         telephone: '', 
         email: '', 
         streetAddress: '', 
@@ -681,18 +675,17 @@ export default function Home() {
     const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData((prev: any) => ({ ...prev, [name]: value }));
-        setIsAiGenerated(false); // Reset AI flag when manual changes are made
+        setIsAiGenerated(false);
     }, [setFormData]);
 
     const handleSelectChange = useCallback((name: string, value: string) => {
         setFormData((prev: any) => ({ ...prev, [name]: value }));
-        setIsAiGenerated(false); // Reset AI flag when manual changes are made
+        setIsAiGenerated(false);
     }, [setFormData]);
 
     const generateSchema = useCallback(() => {
         const contentType = formData.contentType || 'LocalBusiness';
 
-        // Validate form data first
         const validation = validateFormData(formData);
         if (!validation.isValid) {
             toast({ 
@@ -734,8 +727,6 @@ export default function Home() {
             };
 
             const cleanedSchema = cleanObject(articleSchema);
-            
-            // Validate generated schema
             const schemaValidation = validateSchema(cleanedSchema);
             if (!schemaValidation.isValid) {
                 toast({ 
@@ -773,8 +764,6 @@ export default function Home() {
             };
 
             const cleanedSchema = cleanObject(howToSchema);
-            
-            // Validate generated schema
             const schemaValidation = validateSchema(cleanedSchema);
             if (!schemaValidation.isValid) {
                 toast({ 
@@ -789,7 +778,6 @@ export default function Home() {
             setGeneratedSchema(fullScript);
 
         } else {
-            // Business schema - enhanced validation
             if (!isAiGenerated) {
                 if (!cleanedFormData.streetAddress || !cleanedFormData.addressLocality || !cleanedFormData.addressRegion) {
                     toast({ variant: 'destructive', title: 'Missing Address Information', description: 'Please provide complete address information including street, city, and state.' });
@@ -806,7 +794,6 @@ export default function Home() {
                 "headline": cleanedFormData.pageH1 || cleanedFormData.pageTitle || cleanedFormData.name,
             };
 
-            // Add images if provided
             if (images.length > 0) {
                 baseSchema.image = images.map(img => ({
                     "@type": "ImageObject",
@@ -831,7 +818,6 @@ export default function Home() {
                 },
             };
 
-            // Add images to business entity
             if (images.length > 0) {
                 mainEntity.logo = {
                     "@type": "ImageObject",
@@ -844,7 +830,6 @@ export default function Home() {
                 }));
             }
 
-            // Enhanced FAQ handling
             if (cleanedFormData.faqQuestions && cleanedFormData.faqAnswers) {
                 const questions = cleanedFormData.faqQuestions.split('\n').filter(q => q.trim());
                 const answers = cleanedFormData.faqAnswers.split('\n').filter(a => a.trim());
@@ -868,7 +853,6 @@ export default function Home() {
                 }
             }
 
-            // Enhanced business hours
             let openingHours = undefined;
             if (cleanedFormData.businessHours) {
                 const hoursLines = cleanedFormData.businessHours.split('\n').filter(line => line.trim());
@@ -944,12 +928,9 @@ export default function Home() {
             };
 
             const cleanedFinalSchema = cleanObject(finalSchema);
-            
-            // Validate generated schema
             const schemaValidation = validateSchema(cleanedFinalSchema);
             if (!schemaValidation.isValid) {
                 console.warn('Schema validation warnings:', schemaValidation.errors);
-                // Don't block generation for minor validation issues, just warn
             }
 
             const fullScript = `<script type="application/ld+json">\n${JSON.stringify(cleanedFinalSchema, null, 2)}\n</script>`;
@@ -964,7 +945,6 @@ export default function Home() {
         };
         setSchemaHistory(prev => [newHistoryItem, ...prev].slice(0, 10));
 
-        // Show schema celebration
         setShowSchemaCelebration(true);
         toast({ title: 'Enhanced Schema Generated!', description: 'Your comprehensive schema is ready.' });
     }, [formData, socialProfiles, images, howToSteps, toast, setSchemaHistory, generatedSchema, isAiGenerated]);
@@ -978,7 +958,7 @@ export default function Home() {
         toast({ title: 'Copied to clipboard!', description: 'Your schema is now in your clipboard.', icon: <Copy className="h-4 w-4" /> });
     };
     
-    const validateSchema = () => {
+    const validateSchemaResult = () => {
         if (!generatedSchema) {
             toast({ variant: 'destructive', title: 'Nothing to validate', description: 'Please generate a schema first.' });
             return;
@@ -1116,7 +1096,6 @@ export default function Home() {
         <div className="min-h-screen w-full">
             <Header />
             
-            {/* Welcome Message */}
             <AnimatePresence>
                 {showWelcome && (
                     <WelcomeMessage 
@@ -1126,7 +1105,6 @@ export default function Home() {
                 )}
             </AnimatePresence>
 
-            {/* Celebration Effects */}
             <CelebrationEffect 
                 isActive={showWelcomeCelebration} 
                 type="welcome"
@@ -1172,7 +1150,7 @@ export default function Home() {
                                 <div className="grid grid-cols-2 gap-3 mt-8">
                                     <Button onClick={generateSchema} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold col-span-2 h-12 px-6 py-3 text-base"><Wand2 className="mr-2" />Generate Enhanced Schema</Button>
                                     <Button variant="outline" onClick={copySchema} className="h-10 px-4 py-2"><Copy className="mr-2 h-4 w-4"/>Copy</Button>
-                                    <Button variant="outline" onClick={validateSchema} className="h-10 px-4 py-2"><CircleCheck className="mr-2 h-4 w-4"/>Validate with Google</Button>
+                                    <Button variant="outline" onClick={validateSchemaResult} className="h-10 px-4 py-2"><CircleCheck className="mr-2 h-4 w-4"/>Validate with Google</Button>
                                     <Button variant="destructive" onClick={resetFields} className="col-span-2 h-10 px-4 py-2"><Trash2 className="mr-2 h-4 w-4"/>Reset All</Button>
                                 </div>
                             </CardContent>
@@ -1212,8 +1190,6 @@ export default function Home() {
                           transition={{ duration: 0.5, delay: 0.4 }}
                         >
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-3 text-2xl"><History className="text-primary"/>Schema History</CardTitle>
-                            </CardHeader>
                                 <CardTitle className="flex items-center gap-3 text-2xl"><History className="text-primary"/>Schema History</CardTitle>
                             </CardHeader>
                             <CardContent>
