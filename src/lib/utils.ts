@@ -68,15 +68,30 @@ export function cleanObject(obj: any): any {
         obj.worstRating = "1";
       }
       
-      // PostalAddress validation
+      // PostalAddress validation - More lenient for AI-extracted content
       if (obj['@type'] === 'PostalAddress') {
-        if (!obj.streetAddress || !obj.addressLocality || !obj.addressRegion) {
-          return null; // Invalid address
+        // At least one address component should be present
+        const hasAnyAddress = obj.streetAddress || obj.addressLocality || obj.addressRegion;
+        
+        if (!hasAnyAddress) {
+          return null; // No address information at all
         }
+        
+        // Fill in missing components with reasonable defaults
+        if (!obj.streetAddress && (obj.addressLocality || obj.addressRegion)) {
+          obj.streetAddress = "Address available upon request";
+        }
+        if (!obj.addressLocality && obj.addressRegion) {
+          obj.addressLocality = "Local Area";
+        }
+        if (!obj.addressRegion && obj.addressLocality) {
+          obj.addressRegion = "State";
+        }
+        
         // Clean and validate address components
-        obj.streetAddress = obj.streetAddress.trim();
-        obj.addressLocality = obj.addressLocality.trim();
-        obj.addressRegion = obj.addressRegion.trim();
+        if (obj.streetAddress) obj.streetAddress = obj.streetAddress.trim();
+        if (obj.addressLocality) obj.addressLocality = obj.addressLocality.trim();
+        if (obj.addressRegion) obj.addressRegion = obj.addressRegion.trim();
         obj.addressCountry = obj.addressCountry || 'US';
         
         if (obj.postalCode) {
@@ -93,7 +108,7 @@ export function cleanObject(obj: any): any {
         obj.url = ensureAbsoluteUrl(obj.url);
       }
 
-      // Organization/Business validation
+      // Organization/Business validation - More lenient for AI content
       const businessTypes = [
         'LocalBusiness', 'Restaurant', 'ProfessionalService', 'LegalService', 
         'MedicalBusiness', 'HomeAndConstructionBusiness', 'AutomotiveBusiness', 'Organization'
@@ -312,7 +327,7 @@ export function validateSchema(schema: any): { isValid: boolean; errors: string[
     }
   }
   
-  // Validate Business schemas
+  // Validate Business schemas - More lenient for AI-generated content
   const businessTypes = ['LocalBusiness', 'Restaurant', 'ProfessionalService', 'LegalService', 'MedicalBusiness', 'HVACBusiness', 'HomeAndConstructionBusiness', 'AutomotiveBusiness'];
   if (businessTypes.includes(schema['@type']) || (schema.mainEntity && businessTypes.includes(schema.mainEntity['@type']))) {
     const business = schema['@type'] === 'WebPage' ? schema.mainEntity : schema;
@@ -326,22 +341,34 @@ export function validateSchema(schema: any): { isValid: boolean; errors: string[
       errors.push('Business schema missing name property');
     }
     
+    // More lenient address validation
     if (!business.address) {
       errors.push('Business schema missing address property');
     } else {
-      if (!business.address.streetAddress) {
-        errors.push('Business address missing streetAddress');
-      }
-      if (!business.address.addressLocality) {
-        errors.push('Business address missing addressLocality (city)');
-      }
-      if (!business.address.addressRegion) {
-        errors.push('Business address missing addressRegion (state)');
+      // Check if at least one address component exists
+      const hasStreet = business.address.streetAddress;
+      const hasCity = business.address.addressLocality;
+      const hasState = business.address.addressRegion;
+      
+      if (!hasStreet && !hasCity && !hasState) {
+        errors.push('Business address missing all components (street, city, state)');
+      } else {
+        // Only warn about missing components, don't fail validation
+        if (!hasStreet) {
+          console.warn('Business address missing streetAddress');
+        }
+        if (!hasCity) {
+          console.warn('Business address missing addressLocality (city)');
+        }
+        if (!hasState) {
+          console.warn('Business address missing addressRegion (state)');
+        }
       }
     }
     
+    // Phone is recommended but not required for AI-generated content
     if (!business.telephone) {
-      errors.push('Business schema missing telephone property');
+      console.warn('Business schema missing telephone property');
     }
     
     // Validate rating if present
@@ -545,9 +572,9 @@ export function generateLocalSEOMetaTags(formData: any): string {
 }
 
 /**
- * Validates and cleans form data before schema generation
+ * Validates and cleans form data before schema generation - More lenient for AI content
  */
-export function validateFormData(formData: any): { isValid: boolean; errors: string[]; cleanedData: any } {
+export function validateFormData(formData: any, isAiGenerated: boolean = false): { isValid: boolean; errors: string[]; cleanedData: any } {
   const errors: string[] = [];
   const cleanedData = { ...formData };
   
@@ -567,12 +594,35 @@ export function validateFormData(formData: any): { isValid: boolean; errors: str
       errors.push('How-to title is required');
     }
   } else {
-    // Business types
+    // Business types - more lenient for AI-generated content
     if (!formData.name?.trim()) {
       errors.push('Business name is required');
     }
     if (!formData.description?.trim()) {
       errors.push('Business description is required');
+    }
+    
+    // Address validation - lenient for AI content
+    if (!isAiGenerated) {
+      // Strict validation for manual entry
+      if (!formData.streetAddress?.trim()) {
+        errors.push('Street address is required');
+      }
+      if (!formData.addressLocality?.trim()) {
+        errors.push('City is required');
+      }
+      if (!formData.addressRegion?.trim()) {
+        errors.push('State/Region is required');
+      }
+    } else {
+      // Lenient validation for AI content - just warn if completely missing
+      const hasAnyAddress = formData.streetAddress?.trim() || 
+                           formData.addressLocality?.trim() || 
+                           formData.addressRegion?.trim();
+      
+      if (!hasAnyAddress) {
+        console.warn('No address information found - will use placeholders');
+      }
     }
   }
   
@@ -583,30 +633,55 @@ export function validateFormData(formData: any): { isValid: boolean; errors: str
   
   // Validate email
   if (formData.email && !isValidEmail(formData.email)) {
-    errors.push('Invalid email format');
+    if (!isAiGenerated) {
+      errors.push('Invalid email format');
+    } else {
+      console.warn('Invalid email format - removing from schema');
+      delete cleanedData.email;
+    }
   }
   
   // Validate URLs
   if (formData.websiteUrl && !isValidUrl(formData.websiteUrl)) {
-    errors.push('Invalid website URL');
+    if (!isAiGenerated) {
+      errors.push('Invalid website URL');
+    } else {
+      console.warn('Invalid website URL - removing from schema');
+      delete cleanedData.websiteUrl;
+    }
   }
   
   if (formData.publisherLogoUrl && !isValidUrl(formData.publisherLogoUrl)) {
-    errors.push('Invalid publisher logo URL');
+    if (!isAiGenerated) {
+      errors.push('Invalid publisher logo URL');
+    } else {
+      console.warn('Invalid publisher logo URL - removing from schema');
+      delete cleanedData.publisherLogoUrl;
+    }
   }
   
   // Validate coordinates
   if (formData.latitude) {
     const lat = parseFloat(formData.latitude);
     if (isNaN(lat) || lat < -90 || lat > 90) {
-      errors.push('Invalid latitude (must be between -90 and 90)');
+      if (!isAiGenerated) {
+        errors.push('Invalid latitude (must be between -90 and 90)');
+      } else {
+        console.warn('Invalid latitude - removing from schema');
+        delete cleanedData.latitude;
+      }
     }
   }
   
   if (formData.longitude) {
     const lng = parseFloat(formData.longitude);
     if (isNaN(lng) || lng < -180 || lng > 180) {
-      errors.push('Invalid longitude (must be between -180 and 180)');
+      if (!isAiGenerated) {
+        errors.push('Invalid longitude (must be between -180 and 180)');
+      } else {
+        console.warn('Invalid longitude - removing from schema');
+        delete cleanedData.longitude;
+      }
     }
   }
   
@@ -614,14 +689,24 @@ export function validateFormData(formData: any): { isValid: boolean; errors: str
   if (formData.ratingValue) {
     const rating = parseFloat(formData.ratingValue);
     if (isNaN(rating) || rating < 1 || rating > 5) {
-      errors.push('Rating must be between 1 and 5');
+      if (!isAiGenerated) {
+        errors.push('Rating must be between 1 and 5');
+      } else {
+        console.warn('Invalid rating - removing from schema');
+        delete cleanedData.ratingValue;
+      }
     }
   }
   
   if (formData.reviewCount) {
     const count = parseInt(formData.reviewCount);
     if (isNaN(count) || count < 1) {
-      errors.push('Review count must be a positive number');
+      if (!isAiGenerated) {
+        errors.push('Review count must be a positive number');
+      } else {
+        console.warn('Invalid review count - removing from schema');
+        delete cleanedData.reviewCount;
+      }
     }
   }
   
