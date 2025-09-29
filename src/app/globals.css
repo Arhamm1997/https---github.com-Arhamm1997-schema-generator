@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 228 9% 10%;
+    --foreground: 210 20% 98%;
+    --card: 228 9% 14%;
+    --card-foreground: 210 20% 98%;
+    --popover: 228 9% 10%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 262 88% 66%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 215 28% 17%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 218 11% 65%;
+    --accent: 342 98% 63%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 228 9% 20%;
+    --input: 228 9% 20%;
+    --ring: 262 88% 60%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 228 9% 10%;
+    --foreground: 210 20% 98%;
+    --card: 228 9% 14%;
+    --card-foreground: 210 20% 98%;
+    --popover: 228 9% 10%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 262 88% 66%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 215 28% 17%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 218 11% 65%;
+    --accent: 342 98% 63%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 228 9% 20%;
+    --input: 228 9% 20%;
+    --ring: 262 88% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -20%, hsl(var(--background)), transparent),
+      linear-gradient(to bottom, hsl(262, 88%, 12%), hsl(var(--background)));
+    overflow-x: hidden; /* Prevent horizontal scroll from confetti */
+  }
+}
+
+.glow-effect {
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+    animation: float 6s ease-in-out infinite;
+}
+
+/* Simple working animations for confetti */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+    animation: float 6s ease-in-out infinite;
+}
+
+/* Welcome celebration effects */
+@keyframes celebrate-pulse {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7);
+  }
+  50% { 
+    transform: scale(1.02);
+    box-shadow: 0 0 0 10px rgba(139, 92, 246, 0);
+  }
+}
+
+.animate-celebrate-pulse {
+  animation: celebrate-pulse 2s ease-in-out;
+}
+
+/* Festive gradient animation */
+@keyframes festive-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-festive-gradient {
+  background: linear-gradient(-45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3);
+  background-size: 400% 400%;
+  animation: festive-gradient 4s ease infinite;
+}
+
+/* Improved accessibility for animations */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-sparkle,
+  .animate-confetti-fall,
+  .animate-celebrate-pulse,
+  .animate-festive-gradient {
+    animation: none;
+  }
+}
