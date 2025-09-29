@@ -12,6 +12,14 @@ import { load } from 'cheerio';
 
 const GenerateSchemaInputSchema = z.object({
   url: z.string().url().describe('The URL of the webpage to analyze.'),
+  providerConfigs: z.record(z.object({
+    name: z.string(),
+    displayName: z.string(),
+    models: z.array(z.string()),
+    defaultModel: z.string(),
+    enabled: z.boolean(),
+    apiKey: z.string().optional(),
+  })).optional().describe('Optional provider configurations with API keys'),
 });
 export type GenerateSchemaInput = z.infer<typeof GenerateSchemaInputSchema>;
 
@@ -819,19 +827,114 @@ export async function generateSchemaFromUrl(input: GenerateSchemaInput): Promise
   // Try to use the new AI provider system first
   try {
     // Dynamic import to avoid client-side issues
-    const { aiProviderManager } = await import('@/ai/providers');
+    const { AIProviderManager } = await import('@/ai/providers/manager');
+    const aiProviderManager = new AIProviderManager();
+    
+    // If provider configs are provided, set them up
+    if (input.providerConfigs) {
+      console.log('Setting up provider configs:', Object.keys(input.providerConfigs));
+      for (const [providerName, config] of Object.entries(input.providerConfigs)) {
+        if (config.apiKey && config.enabled) {
+          console.log(`Setting up provider ${providerName} with model ${config.defaultModel}`);
+          aiProviderManager.setApiKey(providerName as any, config.apiKey);
+        }
+      }
+    } else {
+      console.log('No provider configs provided');
+    }
+    
     const availableProviders = aiProviderManager.getAvailableProviders();
+    console.log('Available providers after setup:', availableProviders);
+    
     if (availableProviders.length > 0) {
       console.log('Using new AI provider system with available providers:', availableProviders);
-      const result = await aiProviderManager.generateSchemaFromUrl(input);
+      const result = await aiProviderManager.generateSchemaFromUrl({ url: input.url });
       return { schema: result.schema };
+    } else {
+      console.log('No available providers found, will fall back to Genkit');
     }
   } catch (error) {
+    console.error('AI provider system error:', error);
+    
+    // If it's an API key or configuration error, don't fall back to Genkit
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    if (errorMessage.includes('API key') || 
+        errorMessage.includes('not configured') || 
+        errorMessage.includes('not enabled') ||
+        errorMessage.includes('Gemini API error')) {
+      throw new Error(`AI Provider Error: ${errorMessage}. Please check your API key configuration in Settings.`);
+    }
+    
     console.warn('New AI provider system failed, falling back to genkit:', error);
   }
   
-  // Fall back to the original genkit flow
-  return await generateSchemaFromUrlFlow(input);
+  // Fall back to the original genkit flow (only for scraping or other non-API issues)
+  const result = await generateSchemaFromUrlFlow(input);
+  
+  // Post-processing validation
+  return validateGeneratedSchema(result, input.url);
+}
+
+// Post-processing validation function
+function validateGeneratedSchema(result: GenerateSchemaOutput, url: string): GenerateSchemaOutput {
+  // Check if result contains error
+  if (result.schema?.error) {
+    console.error('Schema generation failed:', result.schema);
+    throw new Error(result.schema.message || 'Schema validation failed');
+  }
+  
+  // Validate schema structure
+  const schema = result.schema;
+  if (!schema || typeof schema !== 'object') {
+    throw new Error('Invalid schema format received');
+  }
+  
+  // Check for @graph or direct business object
+  const businesses = schema['@graph'] 
+    ? schema['@graph'].filter((item: any) => 
+        item['@type'] === 'LocalBusiness' || 
+        item['@type']?.includes('Business') ||
+        item['@type'] === 'Restaurant' ||
+        item['@type'] === 'Organization')
+    : [schema];
+  
+  if (businesses.length === 0) {
+    console.warn('⚠️ No business entity found in generated schema');
+  }
+  
+  // Validate business names match URL expectation
+  const urlBusinessName = url.split('/').pop()?.replace(/-/g, ' ').toLowerCase();
+  
+  businesses.forEach((business: any, index: number) => {
+    const businessName = business.name?.toLowerCase() || '';
+    
+    if (urlBusinessName && businessName) {
+      const nameMatches = businessName.includes(urlBusinessName.split(' ')[0]) ||
+                         urlBusinessName.includes(businessName.split(' ')[0]);
+      
+      if (!nameMatches && urlBusinessName.length > 3) {
+        console.warn(`⚠️ Business ${index} name "${business.name}" may not match URL "${urlBusinessName}"`);
+      }
+    }
+    
+    // Validate required fields
+    if (!business.name) {
+      console.warn(`⚠️ Business ${index} missing required name field`);
+    }
+    
+    // Check for placeholder or invalid data
+    const invalidNames = ['cors proxy', 'api', 'not found', '404', 'error'];
+    if (business.name && invalidNames.some(invalid => 
+        business.name.toLowerCase().includes(invalid))) {
+      console.error('❌ Invalid business name detected:', business.name);
+      throw new Error('Generated schema contains invalid business name. Content validation failed.');
+    }
+  });
+  
+  // Log validation success
+  console.log('✅ Schema validation passed');
+  
+  return result;
 }
 
 

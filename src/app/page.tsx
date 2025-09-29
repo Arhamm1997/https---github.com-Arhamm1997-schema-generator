@@ -60,11 +60,22 @@ const UrlFetchCard = ({ onSchemaGenerated }: { onSchemaGenerated: (schema: strin
             return;
         }
 
-        // Check if any AI providers are configured
+        // Check if any AI providers are configured and get their configs
         let availableProviders: string[] = [];
+        let providerConfigs: Record<string, any> = {};
         try {
             const { aiProviderManager } = await import('@/ai/providers');
             availableProviders = aiProviderManager.getAvailableProviders();
+            
+            // Get all provider configs to pass to the server
+            const allProviders = ['gemini', 'openai', 'claude'];
+            for (const provider of allProviders) {
+                const config = aiProviderManager.getProviderConfig(provider as any);
+                if (config) {
+                    providerConfigs[provider] = config;
+                }
+            }
+            
             if (availableProviders.length === 0) {
                 toast({ 
                     variant: 'destructive', 
@@ -80,7 +91,7 @@ const UrlFetchCard = ({ onSchemaGenerated }: { onSchemaGenerated: (schema: strin
 
         setIsLoading(true);
         try {
-            const result = await generateSchemaFromUrl({ url });
+            const result = await generateSchemaFromUrl({ url, providerConfigs });
             const schemaString = `<script type="application/ld+json">\n${JSON.stringify(result.schema, null, 2)}\n</script>`;
             const name = result.schema.mainEntity?.name || result.schema.name || new URL(url).hostname;
             onSchemaGenerated(schemaString, name);

@@ -22,13 +22,32 @@ export interface AIProviderInterface {
 }
 
 export interface PageContentData {
-  h1?: string;
   title?: string;
+  h1?: string;
   content: string;
-  footerContent?: string;
-  headerContent?: string;
-  images?: Array<{src: string, alt?: string, title?: string}>;
-  faqs?: Array<{question: string, answer: string}>;
+  metaDescription?: string;
+  keywords?: string;
+  
+  // Enhanced business information
+  businessName?: string;
+  logo?: string;
+  websiteUrl?: string;
+  description?: string;
+  
+  // Geographic information
+  geoCoordinates?: {
+    latitude?: string;
+    longitude?: string;
+  };
+  
+  // Structured opening hours
+  openingHoursSpecification?: Array<{
+    dayOfWeek: string;
+    opens: string;
+    closes: string;
+  }>;
+  
+  // Enhanced contact and location
   contactInfo?: {
     phone?: string;
     email?: string;
@@ -42,16 +61,77 @@ export interface PageContentData {
       country?: string;
     }
   };
+  
+  // Enhanced ratings and reviews
+  aggregateRating?: {
+    ratingValue?: string;
+    reviewCount?: string;
+    bestRating?: string;
+    worstRating?: string;
+  };
+  
+  individualReviews?: Array<{
+    author: string;
+    reviewBody: string;
+    reviewRating: number;
+    datePublished?: string;
+  }>;
+  
+  // Service areas and payment
+  areaServed?: string[];
+  paymentAccepted?: string[];
+  currenciesAccepted?: string[];
+  
+  // Amenities and features
+  amenityFeature?: Array<{
+    name: string;
+    value: boolean;
+  }>;
+  
+  // Restaurant specific fields
+  servesCuisine?: string[];
+  acceptsReservations?: boolean;
+  hasMenu?: string;
+  hasDelivery?: boolean;
+  hasTakeaway?: boolean;
+  
+  // Additional business information
+  slogan?: string;
+  foundingDate?: string;
+  knowsLanguage?: string[];
+  hasMap?: string;
+  isAccessibleForFree?: boolean;
+  smokingAllowed?: boolean;
+  
+  // Structured services
+  servicesOffered?: Array<{
+    name: string;
+    description?: string;
+    price?: string;
+  }>;
+  
+  // Legacy fields (maintained for compatibility)
+  footerContent?: string;
+  headerContent?: string;
+  images?: Array<{src: string, alt?: string, title?: string}>;
+  faqs?: Array<{question: string, answer: string}>;
   businessHours?: string;
   services?: string[];
   socialLinks?: string[];
   reviews?: {rating?: number, count?: number};
-  metaDescription?: string;
-  keywords?: string;
   priceRange?: string;
   businessType?: string;
   location?: {latitude?: number, longitude?: number, address?: string};
   awards?: string[];
+  
+  // Validation metadata
+  _validation?: {
+    urlBusinessName?: string;
+    extractedBusinessName?: string;
+    contentMatchesUrl: boolean;
+    hasMinimumData: boolean;
+    rejectionReason?: string;
+  };
 }
 
 export interface SchemaGenerationInput {

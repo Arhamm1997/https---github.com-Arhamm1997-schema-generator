@@ -1,17 +1,23 @@
 import { AIProviderInterface, AIProvider, AIResponse } from './types';
-import { ai } from '../genkit';
+import { ai, createAI } from '../genkit';
 
 export class GeminiProvider implements AIProviderInterface {
   private apiKey?: string;
+  private aiInstance: any;
 
   constructor(apiKey?: string) {
     this.apiKey = apiKey;
+    this.aiInstance = apiKey ? createAI(apiKey) : ai;
   }
 
-  async generateContent(prompt: string, model: string = 'googleai/gemini-2.5-flash'): Promise<AIResponse> {
+  async generateContent(prompt: string, model: string = 'googleai/gemini-2.0-flash-exp'): Promise<AIResponse> {
+    if (!this.apiKey && !process.env.GOOGLE_GENAI_API_KEY && !process.env.GEMINI_API_KEY) {
+      throw new Error('Gemini API key not configured. Please provide an API key.');
+    }
+
     try {
-      // Create a flow using the existing genkit setup
-      const response = await ai.generate({
+      // Use the configured AI instance
+      const response = await this.aiInstance.generate({
         model: model,
         prompt: prompt,
       });
@@ -34,7 +40,7 @@ export class GeminiProvider implements AIProviderInterface {
 
   getModels(): string[] {
     return [
-      'googleai/gemini-2.5-flash',
+      'googleai/gemini-2.0-flash-exp',
       'googleai/gemini-1.5-pro',
       'googleai/gemini-1.5-flash',
     ];
@@ -42,5 +48,7 @@ export class GeminiProvider implements AIProviderInterface {
 
   setApiKey(apiKey: string) {
     this.apiKey = apiKey;
+    // Recreate AI instance with new API key
+    this.aiInstance = createAI(apiKey);
   }
 }

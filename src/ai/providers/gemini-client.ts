@@ -13,6 +13,7 @@ export class GeminiClientProvider implements AIProviderInterface {
     }
 
     try {
+      // Use the correct API endpoint for Gemini - back to v1beta for compatibility
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.apiKey}`, {
         method: 'POST',
         headers: {
@@ -29,7 +30,25 @@ export class GeminiClientProvider implements AIProviderInterface {
             topK: 40,
             topP: 0.95,
             maxOutputTokens: 4096,
-          }
+          },
+          safetySettings: [
+            {
+              category: 'HARM_CATEGORY_HARASSMENT',
+              threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+            },
+            {
+              category: 'HARM_CATEGORY_HATE_SPEECH', 
+              threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+            },
+            {
+              category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+              threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+            },
+            {
+              category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+              threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+            }
+          ]
         })
       });
 

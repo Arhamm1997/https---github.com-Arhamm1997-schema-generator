@@ -9,28 +9,37 @@ export class AIProviderManager {
   private configs: Map<AIProvider, AIProviderConfig> = new Map();
 
   constructor() {
+    // Clear old configurations if needed (version check)
+    if (typeof window !== 'undefined') {
+      const configVersion = localStorage.getItem('ai-config-version');
+      if (configVersion !== '2.1') {
+        localStorage.removeItem('ai-provider-configs');
+        localStorage.setItem('ai-config-version', '2.1');
+      }
+    }
+    
     // Initialize default configurations
     this.configs.set('gemini', {
       name: 'gemini',
       displayName: 'Google Gemini',
       models: ['gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash'],
-      defaultModel: 'gemini-2.0-flash-exp',
+      defaultModel: 'gemini-2.0-flash-exp', // Most compatible model
       enabled: false
     });
 
     this.configs.set('openai', {
       name: 'openai',
       displayName: 'OpenAI GPT',
-      models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
-      defaultModel: 'gpt-4o-mini',
+      models: ['gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-4o', 'gpt-4-turbo', 'gpt-4'],
+      defaultModel: 'gpt-4o-mini', // Most cost-effective model
       enabled: false
     });
 
     this.configs.set('claude', {
       name: 'claude',
       displayName: 'Anthropic Claude',
-      models: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
-      defaultModel: 'claude-3-5-haiku-20241022',
+      models: ['claude-3-5-haiku-20241022', 'claude-3-haiku-20240307', 'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229'],
+      defaultModel: 'claude-3-5-haiku-20241022', // Most cost-effective model
       enabled: false
     });
 
@@ -49,8 +58,18 @@ export class AIProviderManager {
         const savedConfigs = localStorage.getItem('ai-provider-configs');
         if (savedConfigs) {
           const parsed = JSON.parse(savedConfigs);
-          Object.entries(parsed).forEach(([provider, config]) => {
-            this.configs.set(provider as AIProvider, config as AIProviderConfig);
+          Object.entries(parsed).forEach(([provider, config]: [string, any]) => {
+            const existingConfig = this.configs.get(provider as AIProvider);
+            if (existingConfig) {
+              // Merge saved config with current defaults, ensuring models list is up to date
+              const mergedConfig = {
+                ...existingConfig,
+                ...config,
+                models: existingConfig.models, // Always use the latest model list
+                defaultModel: existingConfig.defaultModel // Use the corrected default model
+              };
+              this.configs.set(provider as AIProvider, mergedConfig);
+            }
           });
         }
 
@@ -176,13 +195,58 @@ export class AIProviderManager {
       const { scrapePageContent } = await import('@/lib/scraper');
       const scrapedContent = await scrapePageContent(url);
       
-      // Convert scraped content to PageContentData format
+      // Convert scraped content to PageContentData format - comprehensive mapping
       return {
+        // Basic content
         title: scrapedContent.title,
         h1: scrapedContent.h1,
         content: scrapedContent.content,
         metaDescription: scrapedContent.metaDescription,
         keywords: scrapedContent.keywords,
+        
+        // Enhanced business information
+        businessName: scrapedContent.businessName,
+        logo: scrapedContent.logo,
+        websiteUrl: scrapedContent.websiteUrl,
+        description: scrapedContent.description,
+        
+        // Geographic information
+        geoCoordinates: scrapedContent.geoCoordinates,
+        
+        // Structured opening hours
+        openingHoursSpecification: scrapedContent.openingHoursSpecification,
+        
+        // Enhanced ratings and reviews
+        aggregateRating: scrapedContent.aggregateRating,
+        individualReviews: scrapedContent.individualReviews,
+        
+        // Service areas and payment
+        areaServed: scrapedContent.areaServed,
+        paymentAccepted: scrapedContent.paymentAccepted,
+        currenciesAccepted: scrapedContent.currenciesAccepted,
+        
+        // Amenities and features
+        amenityFeature: scrapedContent.amenityFeature,
+        
+        // Restaurant specific fields
+        servesCuisine: scrapedContent.servesCuisine,
+        acceptsReservations: scrapedContent.acceptsReservations,
+        hasMenu: scrapedContent.hasMenu,
+        hasDelivery: scrapedContent.hasDelivery,
+        hasTakeaway: scrapedContent.hasTakeaway,
+        
+        // Additional business information
+        slogan: scrapedContent.slogan,
+        foundingDate: scrapedContent.foundingDate,
+        knowsLanguage: scrapedContent.knowsLanguage,
+        hasMap: scrapedContent.hasMap,
+        isAccessibleForFree: scrapedContent.isAccessibleForFree,
+        smokingAllowed: scrapedContent.smokingAllowed,
+        
+        // Structured services
+        servicesOffered: scrapedContent.servicesOffered,
+        
+        // Legacy fields (maintained for compatibility)
         contactInfo: scrapedContent.contactInfo,
         images: scrapedContent.images,
         socialLinks: scrapedContent.socialLinks,
@@ -190,250 +254,444 @@ export class AIProviderManager {
         faqs: scrapedContent.faqs,
         reviews: scrapedContent.reviews,
         priceRange: scrapedContent.priceRange,
-        businessType: scrapedContent.businessType
+        businessType: scrapedContent.businessType,
+        
+        // Validation metadata
+        _validation: scrapedContent._validation
       };
     } catch (error) {
-      console.error('Error fetching page content:', error);
-      throw new Error(`Failed to fetch or process page content: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.warn('Scraping failed, using fallback content generation:', error instanceof Error ? error.message : error);
+      
+      // Provide minimal fallback content based on URL analysis
+      const urlObj = new URL(url);
+      const hostname = urlObj.hostname;
+      const path = urlObj.pathname;
+      
+      // Try to extract business name from domain
+      const domainParts = hostname.replace(/^www\./, '').split('.');
+      const businessName = domainParts[0].replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      
+      // Analyze path for business type hints
+      let businessType = 'LocalBusiness';
+      const pathLower = path.toLowerCase();
+      if (pathLower.includes('restaurant') || pathLower.includes('food') || pathLower.includes('menu')) {
+        businessType = 'Restaurant';
+      } else if (pathLower.includes('medical') || pathLower.includes('doctor') || pathLower.includes('clinic')) {
+        businessType = 'MedicalBusiness';
+      } else if (pathLower.includes('law') || pathLower.includes('legal') || pathLower.includes('attorney')) {
+        businessType = 'LegalService';
+      } else if (pathLower.includes('construction') || pathLower.includes('contractor') || pathLower.includes('builder')) {
+        businessType = 'HomeAndConstructionBusiness';
+      }
+      
+      return {
+        title: `${businessName} - Business Website`,
+        h1: businessName,
+        content: `${businessName} is a business website. Please visit ${url} for more information about their services and contact details.`,
+        metaDescription: `Visit ${businessName} for professional services and more information.`,
+        businessType,
+        contactInfo: {
+          // Will be filled by AI based on the URL and business context
+        }
+      };
     }
   }
 
-  private parsePageContent(html: string, url: string): PageContentData {
-    // Enhanced client-side content extraction with better parsing
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    
-    // Enhanced title extraction
-    const title = doc.title || 
-                 doc.querySelector('meta[property="og:title"]')?.getAttribute('content') || 
-                 doc.querySelector('meta[name="twitter:title"]')?.getAttribute('content') || 
-                 doc.querySelector('h1')?.textContent || 
-                 '';
 
-    // Enhanced H1 extraction
-    const h1 = doc.querySelector('h1')?.textContent || 
-              doc.querySelector('.page-title, .entry-title, .post-title, .main-title')?.textContent ||
-              '';
-
-    // Enhanced content extraction
-    let content = '';
-    const contentSelectors = [
-      'main', 
-      '.main-content', 
-      '.content', 
-      '.post-content', 
-      '.entry-content',
-      '.article-content',
-      '.page-content',
-      '#content'
-    ];
-
-    for (const selector of contentSelectors) {
-      const element = doc.querySelector(selector);
-      if (element?.textContent && element.textContent.length > content.length) {
-        content = element.textContent;
-      }
-    }
-
-    if (!content || content.length < 100) {
-      content = doc.body?.textContent || '';
-    }
-    content = content.replace(/\s\s+/g, ' ').trim();
-
-    // Extract meta information
-    const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute('content') || 
-                          doc.querySelector('meta[property="og:description"]')?.getAttribute('content') || 
-                          '';
-    const keywords = doc.querySelector('meta[name="keywords"]')?.getAttribute('content') || '';
-
-    // Extract contact information
-    const contactInfo: any = {};
-    
-    // Phone extraction
-    const phoneElements = doc.querySelectorAll('a[href^="tel:"], .phone, .telephone, .contact-phone');
-    if (phoneElements.length > 0) {
-      const phoneText = Array.from(phoneElements)[0]?.textContent || 
-                       Array.from(phoneElements)[0]?.getAttribute('href')?.replace('tel:', '');
-      if (phoneText) contactInfo.phone = phoneText.trim();
-    }
-
-    // Email extraction
-    const emailElements = doc.querySelectorAll('a[href^="mailto:"], .email, .contact-email');
-    if (emailElements.length > 0) {
-      const emailText = Array.from(emailElements)[0]?.getAttribute('href')?.replace('mailto:', '') ||
-                       Array.from(emailElements)[0]?.textContent;
-      if (emailText) contactInfo.email = emailText.trim();
-    }
-
-    // Address extraction
-    const addressElements = doc.querySelectorAll('.address, .contact-address, .location, [itemtype*="PostalAddress"]');
-    if (addressElements.length > 0) {
-      const addressText = Array.from(addressElements)[0]?.textContent?.trim();
-      if (addressText) contactInfo.address = addressText;
-    }
-
-    // Extract images
-    const images: Array<{src: string, alt?: string, title?: string}> = [];
-    const baseUrlObj = new URL(url);
-    
-    doc.querySelectorAll('img').forEach(img => {
-      let src = img.getAttribute('src') || img.getAttribute('data-src');
-      if (src) {
-        if (src.startsWith('//')) {
-          src = baseUrlObj.protocol + src;
-        } else if (src.startsWith('/')) {
-          src = baseUrlObj.origin + src;
-        } else if (!src.startsWith('http')) {
-          try {
-            src = new URL(src, url).href;
-          } catch (e) {
-            return; // Skip invalid URLs
-          }
-        }
-        
-        const alt = img.getAttribute('alt') || '';
-        const title = img.getAttribute('title') || '';
-        
-        const width = parseInt(img.getAttribute('width') || '0');
-        const height = parseInt(img.getAttribute('height') || '0');
-        
-        if ((width === 0 || width >= 200) && (height === 0 || height >= 150)) {
-          images.push({
-            src,
-            alt: alt || undefined,
-            title: title || undefined
-          });
-        }
-      }
-    });
-
-    // Extract social links
-    const socialLinks: string[] = [];
-    const socialDomains = [
-      'facebook.com', 'twitter.com', 'x.com', 'linkedin.com', 
-      'instagram.com', 'youtube.com', 'tiktok.com', 'pinterest.com'
-    ];
-    
-    doc.querySelectorAll('a[href]').forEach(link => {
-      const href = link.getAttribute('href');
-      if (href) {
-        for (const domain of socialDomains) {
-          if (href.includes(domain) && !socialLinks.includes(href)) {
-            socialLinks.push(href);
-            break;
-          }
-        }
-      }
-    });
-
-    // Extract business hours
-    let businessHours = '';
-    const hoursSelectors = [
-      '.hours', '.business-hours', '.opening-hours', '.schedule',
-      '.operating-hours', '.store-hours', '.office-hours'
-    ];
-    
-    for (const selector of hoursSelectors) {
-      const element = doc.querySelector(selector);
-      if (element?.textContent && element.textContent.length > 5) {
-        businessHours = element.textContent.trim();
-        break;
-      }
-    }
-
-    return {
-      title: title.trim(),
-      h1: h1.trim(),
-      content: content.substring(0, 3000), // Limit content size
-      metaDescription,
-      keywords,
-      contactInfo: Object.keys(contactInfo).length > 0 ? contactInfo : undefined,
-      images: images.slice(0, 10),
-      socialLinks: socialLinks.slice(0, 10),
-      businessHours: businessHours || undefined
-    };
-  }
 
   private buildSchemaPrompt(url: string, pageContent: PageContentData): string {
+    const validationData = pageContent._validation;
+    
     return `
-You are an expert at creating comprehensive, voice-search-optimized JSON-LD schema markup following schema.org standards with enhanced address and price detection.
+CRITICAL CONTENT VALIDATION:
+Before generating schema, you MUST validate that the fetched content matches the expected business from the URL.
 
-Your task is to analyze the content of the given URL and generate a complete, SEO-optimized JSON-LD schema with intelligent postal code and price range detection.
+URL TO ANALYZE: ${url}
+
+VALIDATION RESULTS:
+- Expected Business: "${validationData?.urlBusinessName || 'Unknown'}"
+- Found Business Name: "${validationData?.extractedBusinessName || 'None'}"
+- Content Matches URL: ${validationData?.contentMatchesUrl || false}
+- Has Minimum Data: ${validationData?.hasMinimumData || false}
+- Rejection Reason: ${validationData?.rejectionReason || 'None'}
+
+VALIDATION RULES:
+❌ If title/content is about "CORS Proxy", "API", "404", "Not Found" → RETURN ERROR
+❌ If business name from URL doesn't appear anywhere in content → RETURN ERROR  
+❌ If contentMatchesUrl is false AND no rejection reason → RETURN ERROR
+❌ If hasMinimumData is false → RETURN ERROR
+✅ Only proceed if content clearly matches the business from URL
+
+${validationData?.rejectionReason ? `
+🚨 VALIDATION FAILED: ${validationData.rejectionReason}
+
+ERROR RESPONSE FORMAT:
+{
+  "schema": {
+    "error": true,
+    "message": "Content validation failed: ${validationData.rejectionReason}",
+    "expected": "${validationData.urlBusinessName}",
+    "found": {
+      "title": "${pageContent.title || 'Not available'}",
+      "businessName": "${pageContent.businessName || 'Not available'}",
+      "h1": "${pageContent.h1 || 'Not available'}"
+    },
+    "reason": "${validationData.rejectionReason}",
+    "suggestions": [
+      "Check if URL is correct",
+      "Page might require JavaScript rendering", 
+      "Try direct business website URL instead of aggregator page"
+    ]
+  }
+}
+
+RETURN THE ERROR RESPONSE ABOVE - DO NOT GENERATE SCHEMA.
+` : `
+✅ VALIDATION PASSED - PROCEED WITH SCHEMA GENERATION
+
+TASK: Generate complete LocalBusiness schema with ALL available data.
+
+CRITICAL RULES:
+1. ❌ NEVER make up or hallucinate data
+2. ❌ NEVER invent addresses, phone numbers, or business details
+3. ✅ ALWAYS use @type property for nested objects
+4. ✅ ALWAYS include @context: "https://schema.org"
+5. ✅ Use null or omit fields if data not found
+6. ✅ Validate all phone numbers and URLs before including
+7. ✅ Format dates as ISO 8601 (YYYY-MM-DD)
+8. ✅ Use @graph array structure for multiple entities
+9. ✅ For priceRange, ONLY use standard schema.org format: "$", "$$", "$$$", "$$$$" or omit entirely
 
 URL: ${url}
+`}
 
-Page Content Analysis:
+COMPREHENSIVE PAGE ANALYSIS:
 - Title: ${pageContent.title || 'Not available'}
+- Business Name: ${pageContent.businessName || 'Not available'}
 - H1: ${pageContent.h1 || 'Not available'}
-- Meta Description: ${pageContent.metaDescription || 'Not available'}
+- Description: ${pageContent.description || pageContent.metaDescription || 'Not available'}
 - Content: ${pageContent.content ? pageContent.content.substring(0, 2000) + '...' : 'Not available'}
+- Logo: ${pageContent.logo || 'Not available'}
+- Website URL: ${pageContent.websiteUrl || url}
+
+CONTACT & LOCATION:
 - Contact Info: ${JSON.stringify(pageContent.contactInfo || {})}
+- Geo Coordinates: ${JSON.stringify(pageContent.geoCoordinates || {})}
+- Area Served: ${JSON.stringify(pageContent.areaServed || [])}
+
+BUSINESS OPERATIONS:
 - Business Hours: ${pageContent.businessHours || 'Not available'}
-- Services: ${JSON.stringify(pageContent.services || [])}
-- Reviews: ${JSON.stringify(pageContent.reviews || {})}
-- Price Range: ${pageContent.priceRange || 'Not detected'}
+- Structured Hours: ${JSON.stringify(pageContent.openingHoursSpecification || [])}
 - Business Type: ${pageContent.businessType || 'LocalBusiness'}
-- Location: ${JSON.stringify(pageContent.location || {})}
+- Price Range: ${pageContent.priceRange || 'Not detected'}
+- Payment Accepted: ${JSON.stringify(pageContent.paymentAccepted || [])}
+- Currencies: ${JSON.stringify(pageContent.currenciesAccepted || [])}
+
+RATINGS & REVIEWS:
+- Aggregate Rating: ${JSON.stringify(pageContent.aggregateRating || {})}
+- Individual Reviews: ${JSON.stringify((pageContent.individualReviews || []).slice(0, 5))}
+- Legacy Reviews: ${JSON.stringify(pageContent.reviews || {})}
+
+RESTAURANT SPECIFIC (if applicable):
+- Serves Cuisine: ${JSON.stringify(pageContent.servesCuisine || [])}
+- Accepts Reservations: ${pageContent.acceptsReservations || 'Not available'}
+- Has Menu: ${pageContent.hasMenu || 'Not available'}
+- Has Delivery: ${pageContent.hasDelivery || 'Not available'}
+- Has Takeaway: ${pageContent.hasTakeaway || 'Not available'}
+
+AMENITIES & FEATURES:
+- Amenity Features: ${JSON.stringify(pageContent.amenityFeature || [])}
+- Services Offered: ${JSON.stringify((pageContent.servicesOffered || []).slice(0, 10))}
+
+ADDITIONAL INFO:
+- Slogan: ${pageContent.slogan || 'Not available'}
+- Founding Date: ${pageContent.foundingDate || 'Not available'}
+- Languages: ${JSON.stringify(pageContent.knowsLanguage || [])}
+- Has Map: ${pageContent.hasMap || 'Not available'}
+- Accessible for Free: ${pageContent.isAccessibleForFree || 'Not available'}
+- Smoking Allowed: ${pageContent.smokingAllowed || 'Not available'}
+
+MEDIA & SOCIAL:
 - Images: ${JSON.stringify((pageContent.images || []).slice(0, 5))}
-- FAQs: ${JSON.stringify((pageContent.faqs || []).slice(0, 10))}
 - Social Links: ${JSON.stringify(pageContent.socialLinks || [])}
+- FAQs: ${JSON.stringify((pageContent.faqs || []).slice(0, 10))}
 
-**Enhanced Address Processing**: Use advanced postal code detection:
-- Multi-region postal code patterns (US, CA, UK, AU)
-- Enhanced city and state extraction
-- Better street address parsing
-- Contextual address validation
+REQUIRED SCHEMA STRUCTURE:
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "LocalBusiness", // or specific type like Restaurant/MedicalBusiness
+      "@id": "${url}#business",
+      "name": "", // REQUIRED - from businessName field
+      "url": "${url}", // REQUIRED
+      "logo": "", // From logo field
+      "image": [], // From images array
+      "description": "", // From description or metaDescription
+      
+      "address": { // REQUIRED - from contactInfo
+        "@type": "PostalAddress",
+        "streetAddress": "",
+        "addressLocality": "", 
+        "addressRegion": "",
+        "postalCode": "",
+        "addressCountry": ""
+      },
+      
+      "geo": { // From geoCoordinates if available
+        "@type": "GeoCoordinates",
+        "latitude": "",
+        "longitude": ""
+      },
+      
+      "telephone": "", // REQUIRED - from contactInfo.phone
+      "email": "", // From contactInfo.email
+      "priceRange": "", // CRITICAL: ONLY "$", "$$", "$$$", "$$$$" or omit - NO other formats
+      
+      "openingHoursSpecification": [ // From openingHoursSpecification array
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": "Monday",
+          "opens": "09:00",
+          "closes": "17:00"
+        }
+      ],
+      
+      "aggregateRating": { // From aggregateRating object if available
+        "@type": "AggregateRating",
+        "ratingValue": "",
+        "reviewCount": "",
+        "bestRating": "5",
+        "worstRating": "1"
+      },
+      
+      "review": [ // From individualReviews array
+        {
+          "@type": "Review",
+          "author": {
+            "@type": "Person",
+            "name": ""
+          },
+          "reviewRating": {
+            "@type": "Rating",
+            "ratingValue": ""
+          },
+          "reviewBody": "",
+          "datePublished": ""
+        }
+      ],
+      
+      "sameAs": [], // From socialLinks array
+      "areaServed": [], // From areaServed array
+      "paymentAccepted": "", // Join paymentAccepted array with commas
+      "currenciesAccepted": "", // Join currenciesAccepted array
+      
+      "amenityFeature": [ // From amenityFeature array
+        {
+          "@type": "LocationFeatureSpecification",
+          "name": "",
+          "value": true
+        }
+      ],
+      
+      "hasMap": "", // From hasMap field
+      "slogan": "", // From slogan field
+      "foundingDate": "", // From foundingDate field (YYYY format)
+      "knowsLanguage": [], // From knowsLanguage array
+      
+      // RESTAURANT SPECIFIC (if businessType is Restaurant):
+      "servesCuisine": [], // From servesCuisine array
+      "acceptsReservations": true, // From acceptsReservations
+      "hasMenu": "", // From hasMenu field
+      
+      // SERVICES (from servicesOffered):
+      "makesOffer": [
+        {
+          "@type": "Offer",
+          "itemOffered": {
+            "@type": "Service",
+            "name": "",
+            "description": ""
+          },
+          "price": "",
+          "priceCurrency": "USD"
+        }
+      ]
+    },
+    
+    // FAQPage Schema (if faqs exist):
+    {
+      "@type": "FAQPage",
+      "@id": "${url}#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": ""
+          }
+        }
+      ]
+    },
+    
+    // WebPage Schema:
+    {
+      "@type": "WebPage",
+      "@id": "${url}#webpage",
+      "url": "${url}",
+      "name": "", // From title
+      "description": "", // From metaDescription
+      "about": { "@id": "${url}#business" }
+    }
+  ]
+}
 
-**Intelligent Price Range Detection**:
-- City-based price estimation (high-cost cities like NYC get $$$$, lower-cost get $)
-- Content-based price range detection from text
-- Service industry context-aware pricing
-- Fallback to moderate pricing if unclear
+FIELD HANDLING RULES:
+1. Use null for missing required fields (name, address, telephone) 
+2. Use empty array [] for missing array fields
+3. Omit entire objects if all sub-fields are null (e.g., geo, aggregateRating)
+4. Never use "null" as string - use actual null
+5. If FAQPage mainEntity is empty, OMIT the entire FAQPage object from @graph
 
-**Create Comprehensive Schema Structure**: Build a schema with the following structure:
-- Root @type: "WebPage" with the page URL
-- mainEntity: Primary business/organization information with correct @type
-- Include FAQ schema if questions/answers are found
-- Add Organization schema with complete details
-- Include breadcrumbs if applicable
-- Add ImageObject schema for important images
+BUSINESS NAME EXTRACTION PRIORITY:
+1. businessName field from fetched data
+2. h1 tag content  
+3. First part of title (before | or -)
+4. If all fail, flag as uncertain but proceed
 
-**Address Validation with Auto-Fill**:
-- Use extracted postal code with confidence
-- Apply city-based price range intelligence
-- Fill missing address components with contextual data:
-  * streetAddress: Use extracted street or "Address available upon request"
-  * addressLocality: Use extracted city or "Local Area"
-  * addressRegion: Use extracted state or "State"
-  * postalCode: Use detected postal code or leave undefined
-  * addressCountry: Default to detected country or "US"
+ADDRESS HANDLING:
+- If contactInfo exists, use parsed address components
+- Default addressCountry to "US" only if other address fields present
+- If NO address data found, set entire address object to null
 
-**Enhanced Local SEO Elements**:
-- Complete address with improved PostalAddress schema
-- Contact information (telephone, email) with proper formatting
-- Business hours if available
-- Intelligent price range based on location and content
-- Service area (areaServed) 
-- Services offered with proper structure
-- Social media profiles (sameAs)
-- Reviews and ratings with validation
-- Geographic coordinates if available
-- Images with proper ImageObject schema
+DATA QUALITY FLAGS (add as comments):
+${!pageContent.businessName ? '// ⚠️ Business name extracted from URL, verify accuracy' : ''}
+${!pageContent.contactInfo?.phone && !pageContent.contactInfo?.email ? '// ⚠️ No contact information found' : ''}
+${!pageContent.geoCoordinates && !pageContent.contactInfo?.address ? '// ⚠️ No location data found' : ''}
 
-**Important Guidelines**:
-- Prioritize extracted postal codes and city-based price ranges
-- Use intelligent defaults for missing address components
-- Apply location-aware price estimation
-- Create valid schema even with partial data
-- Do NOT include speakable schema elements
-- Ensure all phone numbers are properly formatted
-- Validate email addresses and URLs
-- Include comprehensive FAQ section if questions are found
-- Add proper review schema with ratings between 1-5
-- Include proper OpeningHoursSpecification for business hours
+FINAL VALIDATION BEFORE RETURN:
+✅ Schema must have valid business name (not "CORS Proxy" or URL slug)
+✅ At least one contact method (phone/email) OR address present
+✅ Description matches the business, not a different service
+✅ All URLs are properly formatted (https://)
+✅ All required fields present (name, address, telephone, url)
+✅ All nested objects have @type
+✅ Phone numbers formatted correctly
+✅ Dates in ISO format (YYYY-MM-DD)
+✅ Ratings between 1-5
+✅ priceRange is ONLY "$", "$$", "$$$", "$$$$" or omitted
+✅ No made-up or placeholder text
 
-Return ONLY a valid JSON-LD schema object (without markdown code blocks or additional text). The schema should be comprehensive and ready for implementation.
+Return only the complete, valid JSON-LD schema object OR error object. No markdown, no explanations, just pure JSON.
     `;
+  }
+
+  private validateLocalBusinessSchema(schema: any): {
+    isValid: boolean;
+    errors: string[];
+    warnings: string[];
+  } {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    
+    // Check if it's @graph or single object
+    const businesses = schema['@graph'] 
+      ? schema['@graph'].filter((item: any) => 
+          item['@type'] === 'LocalBusiness' || 
+          item['@type']?.includes('Business'))
+      : [schema];
+    
+    businesses.forEach((business: any, index: number) => {
+      const prefix = businesses.length > 1 ? `Business ${index}: ` : '';
+      
+      // Required fields
+      if (!business.name) errors.push(`${prefix}Missing required field: name`);
+      if (!business.address) errors.push(`${prefix}Missing required field: address`);
+      if (!business.telephone) errors.push(`${prefix}Missing required field: telephone`);
+      if (!business.url) warnings.push(`${prefix}Missing recommended field: url`);
+      
+      // Address validation
+      if (business.address) {
+        if (!business.address['@type']) {
+          warnings.push(`${prefix}Address missing @type: "PostalAddress"`);
+        }
+        if (!business.address.streetAddress) {
+          warnings.push(`${prefix}Address missing streetAddress`);
+        }
+        if (!business.address.addressLocality) {
+          warnings.push(`${prefix}Address missing city (addressLocality)`);
+        }
+        if (!business.address.postalCode) {
+          warnings.push(`${prefix}Address missing postalCode`);
+        }
+      }
+      
+      // Phone validation
+      if (business.telephone) {
+        const phonePattern = /[\d\s\-\(\)+]+/;
+        if (!phonePattern.test(business.telephone)) {
+          errors.push(`${prefix}Invalid telephone format`);
+        }
+      }
+      
+      // URL validation
+      if (business.url && !business.url.startsWith('http')) {
+        errors.push(`${prefix}Invalid URL format`);
+      }
+      
+      // Geo validation
+      if (business.geo) {
+        if (!business.geo['@type']) {
+          warnings.push(`${prefix}Geo missing @type: "GeoCoordinates"`);
+        }
+        if (!business.geo.latitude || !business.geo.longitude) {
+          warnings.push(`${prefix}Incomplete geo coordinates`);
+        }
+      } else {
+        warnings.push(`${prefix}Missing geo coordinates`);
+      }
+      
+      // Rating validation
+      if (business.aggregateRating) {
+        const rating = parseFloat(business.aggregateRating.ratingValue);
+        if (rating < 1 || rating > 5) {
+          errors.push(`${prefix}Invalid rating value (must be 1-5)`);
+        }
+      }
+      
+      // Price range validation - this fixes the original issue
+      if (business.priceRange) {
+        const validPriceRanges = ['$', '$$', '$$$', '$$$$'];
+        if (!validPriceRanges.includes(business.priceRange)) {
+          errors.push(`${prefix}Invalid priceRange format. Must be $, $$, $$$, or $$$$`);
+        }
+      }
+      
+      // Opening hours validation
+      if (business.openingHoursSpecification) {
+        business.openingHoursSpecification.forEach((hours: any, i: number) => {
+          if (!hours['@type']) {
+            warnings.push(`${prefix}Opening hours ${i} missing @type`);
+          }
+          if (!hours.opens || !hours.closes) {
+            warnings.push(`${prefix}Incomplete opening hours ${i}`);
+          }
+        });
+      } else {
+        warnings.push(`${prefix}Missing opening hours`);
+      }
+      
+      // Recommended fields
+      if (!business.image) warnings.push(`${prefix}Missing images`);
+      if (!business.description) warnings.push(`${prefix}Missing description`);
+    });
+    
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings
+    };
   }
 
   private extractSchemaFromResponse(response: string): any {
@@ -443,7 +701,9 @@ Return ONLY a valid JSON-LD schema object (without markdown code blocks or addit
       const codeBlockMatch = response.match(codeBlockRegex);
       
       if (codeBlockMatch) {
-        return JSON.parse(codeBlockMatch[1]);
+        const schema = JSON.parse(codeBlockMatch[1]);
+        this.logSchemaValidation(schema);
+        return schema;
       }
 
       // Try to find JSON object in the response
@@ -451,16 +711,31 @@ Return ONLY a valid JSON-LD schema object (without markdown code blocks or addit
       const jsonMatch = response.match(jsonRegex);
       
       if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+        const schema = JSON.parse(jsonMatch[0]);
+        this.logSchemaValidation(schema);
+        return schema;
       }
 
       // If no JSON found, try to parse the entire response
-      return JSON.parse(response);
+      const schema = JSON.parse(response);
+      this.logSchemaValidation(schema);
+      return schema;
     } catch (error) {
       console.error('Failed to parse schema from response:', error);
       console.log('Raw response:', response);
       throw new Error('Failed to extract valid JSON schema from AI response');
     }
+  }
+
+  private logSchemaValidation(schema: any) {
+    const validation = this.validateLocalBusinessSchema(schema);
+    if (!validation.isValid) {
+      console.error('Schema validation errors:', validation.errors);
+    }
+    if (validation.warnings.length > 0) {
+      console.warn('Schema validation warnings:', validation.warnings);
+    }
+    console.log(`Schema validation: ${validation.isValid ? 'PASSED' : 'FAILED'} with ${validation.errors.length} errors and ${validation.warnings.length} warnings`);
   }
 }
 
